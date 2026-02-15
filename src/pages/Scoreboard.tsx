@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Match, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -177,15 +177,20 @@ const Scoreboard = () => {
   );
 
   // VS Banner - ICC Broadcast Style
-  const VSBanner = () => {
-    const [animIn, setAnimIn] = useState(false);
-    useEffect(() => {
-      const t = setTimeout(() => setAnimIn(true), 50);
+  const vsAnimDone = useRef(false);
+  const [vsAnimIn, setVsAnimIn] = useState(false);
+  useEffect(() => {
+    if (display.mode === 'vs' && !vsAnimDone.current) {
+      const t = setTimeout(() => { setVsAnimIn(true); vsAnimDone.current = true; }, 50);
       return () => clearTimeout(t);
-    }, []);
+    }
+    if (display.mode !== 'vs') { vsAnimDone.current = false; setVsAnimIn(false); }
+  }, [display.mode]);
+
+  const VSBanner = () => {
 
     return (
-      <div className={`relative w-full overflow-hidden transition-all duration-700 ${animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         {/* Thin green line at very top */}
         <div className="h-[2px] w-full bg-green-500" />
         
@@ -196,7 +201,7 @@ const Scoreboard = () => {
         <div className="relative flex items-stretch h-[56px]" style={{ background: 'linear-gradient(180deg, #1c1a5e 0%, #12104a 50%, #0a0836 100%)' }}>
           
           {/* === Team 1 Section === */}
-          <div className={`flex items-center relative overflow-hidden transition-all duration-700 delay-200 ${animIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`} style={{ flex: '1 1 0' }}>
+          <div className={`flex items-center relative overflow-hidden transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`} style={{ flex: '1 1 0' }}>
             {/* Team 1 logo area with team color bg */}
             <div className="h-full flex items-center justify-center px-2 flex-shrink-0 relative z-10" style={{ backgroundColor: t1Color, minWidth: '56px' }}>
               {match.team1.logo ? (
@@ -215,7 +220,7 @@ const Scoreboard = () => {
           </div>
 
           {/* === Center Tournament Badge === */}
-          <div className={`relative flex-shrink-0 flex items-center justify-center z-20 transition-all duration-700 delay-400 ${animIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`} style={{ width: '240px' }}>
+          <div className={`relative flex-shrink-0 flex items-center justify-center z-20 transition-all duration-700 delay-400 ${vsAnimIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`} style={{ width: '240px' }}>
             {/* Left lightning bolt */}
             <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-30">
               <svg width="28" height="48" viewBox="0 0 28 48" fill="none">
@@ -275,7 +280,7 @@ const Scoreboard = () => {
           </div>
 
           {/* === Team 2 Section === */}
-          <div className={`flex items-center justify-end relative overflow-hidden transition-all duration-700 delay-200 ${animIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`} style={{ flex: '1 1 0' }}>
+          <div className={`flex items-center justify-end relative overflow-hidden transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`} style={{ flex: '1 1 0' }}>
             {/* Team 2 Name */}
             <span className="relative z-10 font-display text-xl md:text-2xl lg:text-3xl font-extrabold text-white uppercase tracking-[0.15em] pr-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
               {match.team2.name}
