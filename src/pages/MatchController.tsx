@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Undo2, Plus, Trophy, Users } from 'lucide-react';
 import { Match, Player, Innings, BallEvent, createPlayer, createInnings, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch, updateMatch, getTournament } from '@/lib/store';
@@ -18,6 +19,11 @@ const MatchController = () => {
   const [activeDisplay, setActiveDisplay] = useState<DisplayMode>('default');
   const [team1Color, setTeam1Color] = useState('#ff0000');
   const [team2Color, setTeam2Color] = useState('#0000ff');
+  const [inningsDialogOpen, setInningsDialogOpen] = useState(false);
+  const [inningsDialogType, setInningsDialogType] = useState<0 | 1>(0);
+  const [strikerName, setStrikerName] = useState('');
+  const [nonStrikerName, setNonStrikerName] = useState('');
+  const [bowlerName, setBowlerName] = useState('');
 
   useEffect(() => {
     if (id) setMatch(getMatch(id) || null);
@@ -71,12 +77,40 @@ const MatchController = () => {
   const target = match.currentInningsIndex === 1 && match.innings[0] ? match.innings[0].runs + 1 : null;
   const tournamentName = getTournament(match.tournamentId)?.name || 'Tournament';
 
-  const startInnings = (inningsIndex: number) => {
+  const openInningsDialog = (inningsIndex: 0 | 1) => {
+    setInningsDialogType(inningsIndex);
+    setStrikerName('');
+    setNonStrikerName('');
+    setBowlerName('');
+    setInningsDialogOpen(true);
+  };
+
+  const startInningsWithPlayers = () => {
+    if (!strikerName.trim() || !nonStrikerName.trim() || !bowlerName.trim()) return;
+    const inningsIndex = inningsDialogType;
     const battingIdx = inningsIndex === 0
       ? (match.tossWonBy === 0 ? (match.optedTo === 'bat' ? 0 : 1) : (match.optedTo === 'bat' ? 1 : 0))
       : (match.innings[0].battingTeamIndex === 0 ? 1 : 0);
+    const bowlingIdx = battingIdx === 0 ? 1 : 0;
     const innings = createInnings(battingIdx);
     const updated = { ...match };
+
+    // Find or create striker in batting team
+    const battingTeam = battingIdx === 0 ? updated.team1 : updated.team2;
+    let strikerPlayer = battingTeam.players.find(p => p.name.toLowerCase() === strikerName.trim().toLowerCase());
+    if (!strikerPlayer) { strikerPlayer = createPlayer(strikerName.trim()); battingTeam.players.push(strikerPlayer); }
+    let nonStrikerPlayer = battingTeam.players.find(p => p.name.toLowerCase() === nonStrikerName.trim().toLowerCase());
+    if (!nonStrikerPlayer) { nonStrikerPlayer = createPlayer(nonStrikerName.trim()); battingTeam.players.push(nonStrikerPlayer); }
+
+    // Find or create bowler in bowling team
+    const bowlingTeamRef = bowlingIdx === 0 ? updated.team1 : updated.team2;
+    let bowlerPlayer = bowlingTeamRef.players.find(p => p.name.toLowerCase() === bowlerName.trim().toLowerCase());
+    if (!bowlerPlayer) { bowlerPlayer = createPlayer(bowlerName.trim()); bowlingTeamRef.players.push(bowlerPlayer); }
+
+    innings.currentStrikerId = strikerPlayer.id;
+    innings.currentNonStrikerId = nonStrikerPlayer.id;
+    innings.currentBowlerId = bowlerPlayer.id;
+
     if (inningsIndex === 0) {
       updated.innings = [innings];
     } else {
@@ -86,6 +120,7 @@ const MatchController = () => {
     updated.currentInningsIndex = inningsIndex;
     updated.status = 'live';
     save(updated);
+    setInningsDialogOpen(false);
   };
 
   const addPlayer = (teamIdx: 0 | 1, name: string, setName: (v: string) => void) => {
@@ -293,11 +328,11 @@ const MatchController = () => {
           <div className="flex flex-wrap gap-2 justify-center">
             <ControlBtn label="Default" color="bg-green-600 text-white" onClick={() => sendDisplay('default')} active={activeDisplay === 'default'} />
             <ControlBtn label="Change Toss" color="bg-orange-500 text-white" onClick={() => {}} />
-            {match.currentInningsIndex < 0 && match.team1.players.length > 0 && match.team2.players.length > 0 && (
-              <ControlBtn label="Start 1st Inning" color="bg-blue-700 text-white ring-2 ring-red-500" onClick={() => startInnings(0)} />
+            {match.currentInningsIndex < 0 && (
+              <ControlBtn label="Start 1st Inning" color="bg-blue-700 text-white ring-2 ring-red-500" onClick={() => openInningsDialog(0)} />
             )}
             {match.currentInningsIndex === 0 && currentInnings?.isComplete && (
-              <ControlBtn label="Start 2nd Inning" color="bg-blue-700 text-white ring-2 ring-red-500" onClick={() => startInnings(1)} />
+              <ControlBtn label="Start 2nd Inning" color="bg-blue-700 text-white ring-2 ring-red-500" onClick={() => openInningsDialog(1)} />
             )}
             <ControlBtn label="Tour Name" color="bg-blue-600 text-white" onClick={() => sendDisplay('vs')} />
             <ControlBtn label="UNDO" color="bg-red-600 text-white" onClick={undo} />
@@ -519,6 +554,50 @@ const MatchController = () => {
             <p className="text-muted-foreground text-lg">by {match.winMargin}</p>
           </Section>
         )}
+        {/* Innings Dialog */}
+        <Dialog open={inningsDialogOpen} onOpenChange={setInningsDialogOpen}>
+          <DialogContent className="bg-gradient-to-b from-cyan-400 to-cyan-500 border-none max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center text-2xl font-display font-bold text-white">
+                {inningsDialogType === 0 ? 'Start 1st Inning' : 'Start 2nd Inning'}
+              </DialogTitle>
+            </DialogHeader>
+            {(() => {
+              const battingIdx = inningsDialogType === 0
+                ? (match.tossWonBy === 0 ? (match.optedTo === 'bat' ? 0 : 1) : (match.optedTo === 'bat' ? 1 : 0))
+                : (match.innings[0]?.battingTeamIndex === 0 ? 1 : 0);
+              const bowlingIdx = battingIdx === 0 ? 1 : 0;
+              const batTeamName = battingIdx === 0 ? match.team1.name : match.team2.name;
+              const bowlTeamName = bowlingIdx === 0 ? match.team1.name : match.team2.name;
+              return (
+                <div className="space-y-4">
+                  <p className="text-center text-red-600 font-bold text-lg">{batTeamName}</p>
+                  <div>
+                    <label className="block text-center font-bold text-black text-lg mb-1">Striker</label>
+                    <Input value={strikerName} onChange={e => setStrikerName(e.target.value)} placeholder="Enter striker name" className="bg-white text-black border-white" />
+                  </div>
+                  <div>
+                    <label className="block text-center font-bold text-black text-lg mb-1">Non-Striker</label>
+                    <Input value={nonStrikerName} onChange={e => setNonStrikerName(e.target.value)} placeholder="Enter non-striker name" className="bg-white text-black border-white" />
+                  </div>
+                  <p className="text-center text-red-600 font-bold text-lg">{bowlTeamName}</p>
+                  <div>
+                    <label className="block text-center font-bold text-black text-lg mb-1">Bowler</label>
+                    <Input value={bowlerName} onChange={e => setBowlerName(e.target.value)} placeholder="Enter bowler name" className="bg-white text-black border-white" />
+                  </div>
+                  <div className="flex gap-3 justify-center pt-2">
+                    <Button onClick={startInningsWithPlayers} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6">
+                      {inningsDialogType === 0 ? 'Start 1st Inning' : 'Start 2nd Inning'}
+                    </Button>
+                    <Button onClick={() => setInningsDialogOpen(false)} className="bg-red-500 hover:bg-red-600 text-white font-bold px-6">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
