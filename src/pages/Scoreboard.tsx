@@ -177,88 +177,129 @@ const Scoreboard = () => {
   );
 
   // VS Banner - ICC Broadcast Style
-  const VSBanner = () => (
-    <div className="relative w-full overflow-hidden">
-      {/* Top gold accent line */}
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #d4a017 0%, #f5c842 30%, #d4a017 50%, #f5c842 70%, #d4a017 100%)' }} />
-      
-      <div className="relative flex items-stretch h-16" style={{ background: 'linear-gradient(180deg, #1e1b4b 0%, #0f0a3e 100%)' }}>
-        {/* Team 1 Side */}
-        <div className="flex-1 flex items-center relative overflow-hidden">
-          {/* Diagonal accent */}
-          <div className="absolute left-0 top-0 bottom-0 w-20 skew-x-[-15deg] -ml-4" style={{ background: `linear-gradient(180deg, ${t1Color}cc, ${t1Color}88)` }} />
+  const VSBanner = () => {
+    const [animIn, setAnimIn] = useState(false);
+    useEffect(() => {
+      const t = setTimeout(() => setAnimIn(true), 50);
+      return () => clearTimeout(t);
+    }, []);
+
+    return (
+      <div className={`relative w-full overflow-hidden transition-all duration-700 ${animIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        {/* Thin green line at very top */}
+        <div className="h-[2px] w-full bg-green-500" />
+        
+        {/* Gold accent line */}
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+
+        {/* Main bar */}
+        <div className="relative flex items-stretch h-[56px]" style={{ background: 'linear-gradient(180deg, #1c1a5e 0%, #12104a 50%, #0a0836 100%)' }}>
           
-          {/* Team 1 Logo */}
-          <div className="relative z-10 ml-3 mr-3 flex-shrink-0">
-            {match.team1.logo ? (
-              <img src={match.team1.logo} alt={match.team1.name} className="w-10 h-10 object-contain drop-shadow-lg" />
-            ) : (
-              <div className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-sm border-2 border-white/30" style={{ backgroundColor: t1Color }}>
-                {match.team1.name.slice(0, 2).toUpperCase()}
-              </div>
-            )}
+          {/* === Team 1 Section === */}
+          <div className={`flex items-center relative overflow-hidden transition-all duration-700 delay-200 ${animIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`} style={{ flex: '1 1 0' }}>
+            {/* Team 1 logo area with team color bg */}
+            <div className="h-full flex items-center justify-center px-2 flex-shrink-0 relative z-10" style={{ backgroundColor: t1Color, minWidth: '56px' }}>
+              {match.team1.logo ? (
+                <img src={match.team1.logo} alt={match.team1.name} className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
+              ) : (
+                <span className="font-display text-white font-bold text-lg">{match.team1.name.slice(0, 2).toUpperCase()}</span>
+              )}
+            </div>
+            {/* Diagonal cut from team color */}
+            <div className="absolute left-[56px] top-0 bottom-0 w-6 z-[5]" style={{ background: t1Color, clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
+            
+            {/* Team 1 Name */}
+            <span className="relative z-10 font-display text-xl md:text-2xl lg:text-3xl font-extrabold text-white uppercase tracking-[0.15em] pl-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+              {match.team1.name}
+            </span>
           </div>
-          
-          {/* Team 1 Name */}
-          <span className="relative z-10 font-display text-xl md:text-2xl font-extrabold text-white uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-            {match.team1.name}
-          </span>
+
+          {/* === Center Tournament Badge === */}
+          <div className={`relative flex-shrink-0 flex items-center justify-center z-20 transition-all duration-700 delay-400 ${animIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`} style={{ width: '240px' }}>
+            {/* Left lightning bolt */}
+            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-30">
+              <svg width="28" height="48" viewBox="0 0 28 48" fill="none">
+                <path d="M18 0L0 28h10L8 48l20-28H18L18 0z" fill="url(#bolt1)" />
+                <defs>
+                  <linearGradient id="bolt1" x1="14" y1="0" x2="14" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#f5c842" />
+                    <stop offset="1" stopColor="#c17a1a" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            {/* Right lightning bolt */}
+            <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-30">
+              <svg width="28" height="48" viewBox="0 0 28 48" fill="none" style={{ transform: 'scaleX(-1)' }}>
+                <path d="M18 0L0 28h10L8 48l20-28H18L18 0z" fill="url(#bolt2)" />
+                <defs>
+                  <linearGradient id="bolt2" x1="14" y1="0" x2="14" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#f5c842" />
+                    <stop offset="1" stopColor="#c17a1a" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+
+            {/* Center badge background */}
+            <div className="absolute inset-0">
+              <svg viewBox="0 0 240 56" className="w-full h-full" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="badgeBg" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#2a2878" />
+                    <stop offset="50%" stopColor="#1e1b68" />
+                    <stop offset="100%" stopColor="#141252" />
+                  </linearGradient>
+                  <linearGradient id="badgeBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#e8a832" />
+                    <stop offset="50%" stopColor="#f5c842" />
+                    <stop offset="100%" stopColor="#c17a1a" />
+                  </linearGradient>
+                </defs>
+                <polygon points="24,0 216,0 240,28 216,56 24,56 0,28" fill="url(#badgeBg)" stroke="url(#badgeBorder)" strokeWidth="2" />
+              </svg>
+            </div>
+
+            {/* Badge text content */}
+            <div className="relative z-10 text-center px-8">
+              <div className="font-display text-[10px] text-amber-400 font-bold tracking-[0.2em] uppercase leading-tight">
+                {match.matchType || 'TOURNAMENT'}
+              </div>
+              <div className="font-display text-white text-sm font-extrabold tracking-wider leading-tight mt-0.5">
+                MATCH #{match.matchNo || 1}
+              </div>
+              <div className="font-display text-[9px] text-white/50 tracking-widest uppercase leading-tight mt-0.5">
+                {match.overs} OVERS
+              </div>
+            </div>
+          </div>
+
+          {/* === Team 2 Section === */}
+          <div className={`flex items-center justify-end relative overflow-hidden transition-all duration-700 delay-200 ${animIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`} style={{ flex: '1 1 0' }}>
+            {/* Team 2 Name */}
+            <span className="relative z-10 font-display text-xl md:text-2xl lg:text-3xl font-extrabold text-white uppercase tracking-[0.15em] pr-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+              {match.team2.name}
+            </span>
+            {/* Diagonal cut from team color */}
+            <div className="absolute right-[56px] top-0 bottom-0 w-6 z-[5]" style={{ background: t2Color, clipPath: 'polygon(100% 0, 100% 100%, 0 0)' }} />
+            {/* Team 2 logo area with team color bg */}
+            <div className="h-full flex items-center justify-center px-2 flex-shrink-0 relative z-10" style={{ backgroundColor: t2Color, minWidth: '56px' }}>
+              {match.team2.logo ? (
+                <img src={match.team2.logo} alt={match.team2.name} className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
+              ) : (
+                <span className="font-display text-white font-bold text-lg">{match.team2.name.slice(0, 2).toUpperCase()}</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Center - Match Info with diamond shape */}
-        <div className="relative flex-shrink-0 w-[200px] flex items-center justify-center z-20">
-          {/* Diamond/chevron background */}
-          <div className="absolute inset-0">
-            <svg viewBox="0 0 200 64" className="w-full h-full" preserveAspectRatio="none">
-              <polygon points="30,0 170,0 200,32 170,64 30,64 0,32" fill="url(#centerGrad)" stroke="#d4a017" strokeWidth="1.5" />
-              <defs>
-                <linearGradient id="centerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#2d2a6e" />
-                  <stop offset="100%" stopColor="#1a1750" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <div className="relative z-10 text-center">
-            <div className="font-display text-[10px] text-amber-300 font-bold tracking-widest uppercase">
-              {match.matchType}
-            </div>
-            <div className="font-display text-white text-xs font-bold mt-0.5">
-              MATCH #{match.matchNo}
-            </div>
-            <div className="font-display text-[10px] text-white/60 mt-0.5">
-              {match.overs} OVERS
-            </div>
-          </div>
-        </div>
-
-        {/* Team 2 Side */}
-        <div className="flex-1 flex items-center justify-end relative overflow-hidden">
-          {/* Diagonal accent */}
-          <div className="absolute right-0 top-0 bottom-0 w-20 skew-x-[15deg] -mr-4" style={{ background: `linear-gradient(180deg, ${t2Color}cc, ${t2Color}88)` }} />
-          
-          {/* Team 2 Name */}
-          <span className="relative z-10 font-display text-xl md:text-2xl font-extrabold text-white uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-            {match.team2.name}
-          </span>
-          
-          {/* Team 2 Logo */}
-          <div className="relative z-10 ml-3 mr-3 flex-shrink-0">
-            {match.team2.logo ? (
-              <img src={match.team2.logo} alt={match.team2.name} className="w-10 h-10 object-contain drop-shadow-lg" />
-            ) : (
-              <div className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-sm border-2 border-white/30" style={{ backgroundColor: t2Color }}>
-                {match.team2.name.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Gold accent line bottom */}
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        {/* Thin green line at very bottom */}
+        <div className="h-[2px] w-full bg-green-500" />
       </div>
-      
-      {/* Bottom gold accent line */}
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #d4a017 0%, #f5c842 30%, #d4a017 50%, #f5c842 70%, #d4a017 100%)' }} />
-    </div>
-  );
+    );
+  };
 
   // Target Banner  
   const TargetBanner = () => {
