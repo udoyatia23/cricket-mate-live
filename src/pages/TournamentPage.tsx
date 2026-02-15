@@ -16,7 +16,6 @@ const TournamentPage = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [open, setOpen] = useState(false);
 
-  // Match form state
   const [team1Name, setTeam1Name] = useState('');
   const [team2Name, setTeam2Name] = useState('');
   const [team1Logo, setTeam1Logo] = useState('');
@@ -28,18 +27,24 @@ const TournamentPage = () => {
   const [ballsPerOver, setBallsPerOver] = useState('6');
   const [matchType, setMatchType] = useState('group');
 
-  useEffect(() => {
-    if (id) {
-      setTournament(getTournament(id) || null);
-      setMatches(getMatchesForTournament(id));
-    }
-  }, [id]);
-
-  const refreshMatches = () => {
-    if (id) setMatches(getMatchesForTournament(id));
+  const loadData = async () => {
+    if (!id) return;
+    const t = await getTournament(id);
+    setTournament(t || null);
+    const m = await getMatchesForTournament(id);
+    setMatches(m);
   };
 
-  const handleCreateMatch = () => {
+  useEffect(() => { loadData(); }, [id]);
+
+  const refreshMatches = async () => {
+    if (id) {
+      const m = await getMatchesForTournament(id);
+      setMatches(m);
+    }
+  };
+
+  const handleCreateMatch = async () => {
     if (!team1Name.trim() || !team2Name.trim() || !id) return;
     const match: Match = {
       id: crypto.randomUUID(),
@@ -57,8 +62,8 @@ const TournamentPage = () => {
       currentInningsIndex: -1,
       createdAt: new Date().toISOString(),
     };
-    addMatch(match);
-    refreshMatches();
+    await addMatch(match);
+    await refreshMatches();
     setTeam1Name('');
     setTeam2Name('');
     setTeam1Logo('');
@@ -66,9 +71,9 @@ const TournamentPage = () => {
     setOpen(false);
   };
 
-  const handleDeleteMatch = (matchId: string) => {
-    deleteMatch(matchId);
-    refreshMatches();
+  const handleDeleteMatch = async (matchId: string) => {
+    await deleteMatch(matchId);
+    await refreshMatches();
   };
 
   if (!tournament) {

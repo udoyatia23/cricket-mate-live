@@ -13,7 +13,9 @@ const Scoreboard = () => {
 
   useEffect(() => {
     if (!id) return;
-    const loadMatch = () => setMatch(getMatch(id) || null);
+    const loadMatch = () => {
+      getMatch(id).then(m => setMatch(m || null));
+    };
     loadMatch();
     const interval = setInterval(loadMatch, 1500);
     setDisplay(getDisplayState(id));
