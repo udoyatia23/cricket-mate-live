@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Trophy, Plus, ArrowLeft, Play, Eye, Trash2 } from 'lucide-react';
+import { Trophy, Plus, ArrowLeft, Play, Eye, Trash2, ImagePlus } from 'lucide-react';
 import { Tournament, Match } from '@/types/cricket';
 import { getTournament, getMatchesForTournament, addMatch, deleteMatch } from '@/lib/store';
 
@@ -19,6 +19,8 @@ const TournamentPage = () => {
   // Match form state
   const [team1Name, setTeam1Name] = useState('');
   const [team2Name, setTeam2Name] = useState('');
+  const [team1Logo, setTeam1Logo] = useState('');
+  const [team2Logo, setTeam2Logo] = useState('');
   const [overs, setOvers] = useState('20');
   const [matchNo, setMatchNo] = useState('1');
   const [tossWonBy, setTossWonBy] = useState('0');
@@ -42,8 +44,8 @@ const TournamentPage = () => {
     const match: Match = {
       id: crypto.randomUUID(),
       tournamentId: id,
-      team1: { name: team1Name.trim(), players: [], color: '#22c55e' },
-      team2: { name: team2Name.trim(), players: [], color: '#3b82f6' },
+      team1: { name: team1Name.trim(), players: [], color: '#22c55e', logo: team1Logo || undefined },
+      team2: { name: team2Name.trim(), players: [], color: '#3b82f6', logo: team2Logo || undefined },
       overs: parseInt(overs),
       ballsPerOver: parseInt(ballsPerOver),
       matchNo: parseInt(matchNo),
@@ -59,6 +61,8 @@ const TournamentPage = () => {
     refreshMatches();
     setTeam1Name('');
     setTeam2Name('');
+    setTeam1Logo('');
+    setTeam2Logo('');
     setOpen(false);
   };
 
@@ -117,10 +121,54 @@ const TournamentPage = () => {
                   <div>
                     <Label>Team 1</Label>
                     <Input value={team1Name} onChange={e => setTeam1Name(e.target.value)} placeholder="Team 1 Name" className="mt-1 bg-secondary" />
+                    <Label className="mt-2 block text-xs text-muted-foreground">Team 1 Logo</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      {team1Logo ? (
+                        <img src={team1Logo} alt="T1 Logo" className="w-10 h-10 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
+                          <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <label className="cursor-pointer text-xs text-primary hover:underline">
+                        {team1Logo ? 'Change' : 'Upload'}
+                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setTeam1Logo(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }} />
+                      </label>
+                      {team1Logo && <button onClick={() => setTeam1Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+                    </div>
                   </div>
                   <div>
                     <Label>Team 2</Label>
                     <Input value={team2Name} onChange={e => setTeam2Name(e.target.value)} placeholder="Team 2 Name" className="mt-1 bg-secondary" />
+                    <Label className="mt-2 block text-xs text-muted-foreground">Team 2 Logo</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      {team2Logo ? (
+                        <img src={team2Logo} alt="T2 Logo" className="w-10 h-10 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
+                          <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <label className="cursor-pointer text-xs text-primary hover:underline">
+                        {team2Logo ? 'Change' : 'Upload'}
+                        <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setTeam2Logo(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }} />
+                      </label>
+                      {team2Logo && <button onClick={() => setTeam2Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">

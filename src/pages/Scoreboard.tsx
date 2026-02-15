@@ -83,9 +83,13 @@ const Scoreboard = () => {
         {/* Left - Batting Info */}
         <div className="flex items-center gap-3 px-3 flex-1 min-w-0">
           {/* Team indicator */}
-          <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center font-display font-bold text-white text-sm" style={{ backgroundColor: t1Color }}>
-            {battingTeam?.name.slice(0, 3).toUpperCase()}
-          </div>
+          {battingTeam?.logo ? (
+            <img src={battingTeam.logo} alt={battingTeam.name} className="w-10 h-10 rounded flex-shrink-0 object-cover" />
+          ) : (
+            <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center font-display font-bold text-white text-sm" style={{ backgroundColor: t1Color }}>
+              {battingTeam?.name.slice(0, 3).toUpperCase()}
+            </div>
+          )}
           {/* Batsmen */}
           <div className="text-white text-sm leading-tight min-w-0">
             {striker && (
@@ -149,9 +153,13 @@ const Scoreboard = () => {
             )}
             <OverBallsDisplay />
           </div>
-          <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center font-display font-bold text-white text-sm" style={{ backgroundColor: t2Color }}>
-            {bowlingTeam?.name.slice(0, 3).toUpperCase()}
-          </div>
+          {bowlingTeam?.logo ? (
+            <img src={bowlingTeam.logo} alt={bowlingTeam.name} className="w-10 h-10 rounded flex-shrink-0 object-cover" />
+          ) : (
+            <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center font-display font-bold text-white text-sm" style={{ backgroundColor: t2Color }}>
+              {bowlingTeam?.name.slice(0, 3).toUpperCase()}
+            </div>
+          )}
         </div>
 
         {/* Right Team Color Strip */}
@@ -174,7 +182,11 @@ const Scoreboard = () => {
       <div className="w-2" style={{ backgroundColor: t1Color }} />
       <div className="flex-1 flex items-center justify-center gap-6">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-6 rounded-sm" style={{ backgroundColor: t1Color }} />
+          {match.team1.logo ? (
+            <img src={match.team1.logo} alt={match.team1.name} className="w-8 h-8 rounded-sm object-cover" />
+          ) : (
+            <div className="w-8 h-6 rounded-sm" style={{ backgroundColor: t1Color }} />
+          )}
           <span className="font-display text-2xl font-bold text-white uppercase">{match.team1.name}</span>
         </div>
         <div className="text-center">
@@ -183,7 +195,11 @@ const Scoreboard = () => {
         </div>
         <div className="flex items-center gap-2">
           <span className="font-display text-2xl font-bold text-white uppercase">{match.team2.name}</span>
-          <div className="w-8 h-6 rounded-sm" style={{ backgroundColor: t2Color }} />
+          {match.team2.logo ? (
+            <img src={match.team2.logo} alt={match.team2.name} className="w-8 h-8 rounded-sm object-cover" />
+          ) : (
+            <div className="w-8 h-6 rounded-sm" style={{ backgroundColor: t2Color }} />
+          )}
         </div>
       </div>
       <div className="w-2" style={{ backgroundColor: t2Color }} />
@@ -227,12 +243,12 @@ const Scoreboard = () => {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 border-b-2 border-purple-800">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full" style={{ backgroundColor: blt.color || t1Color }} />
+            {blt.logo ? <img src={blt.logo} alt={blt.name} className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{ backgroundColor: blt.color || t1Color }} />}
             <span className="font-display text-lg font-bold text-white uppercase">{blt.name}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="font-display text-lg font-bold text-white uppercase">{bt.name}</span>
-            <div className="w-6 h-6 rounded-full" style={{ backgroundColor: bt.color || t2Color }} />
+            {bt.logo ? <img src={bt.logo} alt={bt.name} className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{ backgroundColor: bt.color || t2Color }} />}
           </div>
         </div>
         {/* Players */}
