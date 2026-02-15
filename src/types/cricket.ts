@@ -18,6 +18,7 @@ export interface Team {
   name: string;
   players: Player[];
   color: string;
+  logo?: string;
 }
 
 export interface Extras {
