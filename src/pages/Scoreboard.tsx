@@ -44,297 +44,321 @@ const Scoreboard = () => {
   const target = match.currentInningsIndex === 1 && inn1 ? inn1.runs + 1 : null;
   const t1Color = match.team1.color || '#c62828';
   const t2Color = match.team2.color || '#1565c0';
+  const batTeamColor = currentInnings ? (currentInnings.battingTeamIndex === 0 ? t1Color : t2Color) : t1Color;
+  const bowlTeamColor = currentInnings ? (currentInnings.bowlingTeamIndex === 0 ? t1Color : t2Color) : t2Color;
 
-  // This over balls for bowler display
-  const currentOverBalls = currentInnings ? currentInnings.events.filter(e => {
-    const overStart = Math.floor((currentInnings.balls - 1) / match.ballsPerOver) * match.ballsPerOver;
-    return currentInnings.events.indexOf(e) >= currentInnings.events.length - (currentInnings.balls % match.ballsPerOver || match.ballsPerOver);
-  }).slice(-match.ballsPerOver) : [];
+  // Current over balls
+  const currentOverBalls = (() => {
+    if (!currentInnings) return [];
+    const bpo = match.ballsPerOver;
+    const totalLegal = currentInnings.balls;
+    const currentOverNum = Math.floor((totalLegal - 1) / bpo);
+    const ballsInCurrentOver = totalLegal % bpo || (totalLegal > 0 ? bpo : 0);
+    
+    // Get recent events for this over
+    const events = currentInnings.events;
+    const result: typeof events = [];
+    let legalCount = 0;
+    for (let i = events.length - 1; i >= 0 && result.length < bpo + 6; i--) {
+      result.unshift(events[i]);
+      if (events[i].isLegal) legalCount++;
+      if (legalCount >= ballsInCurrentOver) break;
+    }
+    return result;
+  })();
 
-  const OverBallsDisplay = () => (
-    <div className="flex gap-1">
-      {currentOverBalls.map((e, i) => (
-        <span key={i} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border
-          ${e.isWicket ? 'bg-red-600 border-red-400 text-white' : e.type === 'wide' || e.type === 'noBall' ? 'bg-yellow-600 border-yellow-400 text-white' : e.runs === 4 ? 'bg-blue-500 border-blue-300 text-white' : e.runs === 6 ? 'bg-green-500 border-green-300 text-white' : 'bg-transparent border-white/50 text-white'}`}>
-          {e.isWicket ? 'W' : e.type === 'wide' ? 'Wd' : e.type === 'noBall' ? 'Nb' : e.runs}
-        </span>
-      ))}
-      {Array.from({ length: Math.max(0, match.ballsPerOver - currentOverBalls.length) }).map((_, i) => (
-        <span key={`e-${i}`} className="w-6 h-6 rounded-full border border-white/30 flex items-center justify-center text-xs text-white/30">○</span>
-      ))}
-    </div>
-  );
-
-  // Overlay component
-  const renderOverlay = () => {
+  // Overlay config
+  const getOverlayData = () => {
     if (display.overlay === 'none') return null;
-    const overlayConfig: Record<AnimationOverlay, { text: string; bg: string; textColor: string }> = {
-      none: { text: '', bg: '', textColor: '' },
-      four: { text: 'FOUR', bg: 'bg-gradient-to-r from-cyan-400 to-cyan-300', textColor: 'text-white' },
-      six: { text: 'SIX', bg: 'bg-gradient-to-r from-green-400 to-emerald-500', textColor: 'text-white' },
-      wicket: { text: 'WICKET', bg: 'bg-gradient-to-r from-pink-500 to-rose-500', textColor: 'text-white' },
-      free_hit: { text: 'FREE HIT', bg: 'bg-gradient-to-r from-yellow-400 to-orange-500', textColor: 'text-white' },
-      hat_trick: { text: 'HAT-TRICK BALL', bg: 'bg-gradient-to-r from-red-600 to-pink-600', textColor: 'text-white' },
-      out: { text: 'OUT', bg: 'bg-gradient-to-r from-red-600 to-red-700', textColor: 'text-white' },
-      not_out: { text: 'NOT OUT', bg: 'bg-gradient-to-r from-green-600 to-green-700', textColor: 'text-white' },
+    const configs: Record<AnimationOverlay, { text: string; color: string }> = {
+      none: { text: '', color: '' },
+      four: { text: 'FOUR!', color: '#00bcd4' },
+      six: { text: 'MAXIMUM!', color: '#4caf50' },
+      wicket: { text: 'WICKET!', color: '#e91e63' },
+      free_hit: { text: 'FREE HIT', color: '#ff9800' },
+      hat_trick: { text: 'HAT-TRICK!', color: '#f44336' },
+      out: { text: 'OUT!', color: '#d32f2f' },
+      not_out: { text: 'NOT OUT!', color: '#388e3c' },
     };
-    const cfg = overlayConfig[display.overlay];
-    return cfg;
+    return configs[display.overlay];
   };
 
-  const overlayData = renderOverlay();
+  const overlayData = getOverlayData();
 
-  // Default Score Bar - broadcast style
-  const DefaultScoreBar = () => (
-    <div className="w-full">
-      {/* Main score bar */}
-      <div className="relative flex items-stretch h-16 border-y-2 border-amber-500" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-        {/* Left Team Color Strip */}
-        <div className="w-2 flex-shrink-0" style={{ backgroundColor: t1Color }} />
+  // Lightning bolt SVG
+  const LightningBolt = ({ flip = false }: { flip?: boolean }) => (
+    <svg width="24" height="64" viewBox="0 0 24 64" fill="none" className="flex-shrink-0" style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
+      <path d="M16 0L0 36h9L6 64l18-36H15L16 0z" fill="url(#boltGrad)" />
+      <defs>
+        <linearGradient id="boltGrad" x1="12" y1="0" x2="12" y2="64" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#f5c842" />
+          <stop offset="1" stopColor="#e88a1a" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+
+  // Team logo/badge component
+  const TeamBadge = ({ team, color, size = 40 }: { team: typeof match.team1; color: string; size?: number }) => (
+    team.logo ? (
+      <img src={team.logo} alt={team.name} className="rounded-sm object-cover flex-shrink-0" style={{ width: size, height: size }} />
+    ) : (
+      <div className="rounded-sm flex items-center justify-center font-display font-bold text-white flex-shrink-0" style={{ width: size, height: size, backgroundColor: color, fontSize: size * 0.3 }}>
+        {team.name.slice(0, 3).toUpperCase()}
+      </div>
+    )
+  );
+
+  // Over ball display (ICC style circles)
+  const OverBallCircle = ({ event }: { event: typeof currentOverBalls[0] }) => {
+    let bg = 'transparent';
+    let border = 'rgba(255,255,255,0.4)';
+    let text = String(event.runs);
+    let textColor = '#fff';
+
+    if (event.isWicket) {
+      bg = '#e91e63'; border = '#e91e63'; text = 'W'; 
+    } else if (event.runs === 6) {
+      bg = '#4caf50'; border = '#4caf50';
+    } else if (event.runs === 4) {
+      bg = '#00bcd4'; border = '#00bcd4';
+    } else if (event.type === 'wide') {
+      bg = 'transparent'; border = '#ffc107'; text = 'Wd'; textColor = '#ffc107';
+    } else if (event.type === 'noBall') {
+      bg = 'transparent'; border = '#ffc107'; text = 'Nb'; textColor = '#ffc107';
+    } else if (event.type === 'bye' || event.type === 'legBye') {
+      bg = 'transparent'; border = '#90caf9'; textColor = '#90caf9';
+    }
+
+    return (
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+        style={{ backgroundColor: bg, border: `2px solid ${border}`, color: textColor }}
+      >
+        {text}
+      </div>
+    );
+  };
+
+  // ============ DEFAULT SCORE BAR (ICC Style) ============
+  const DefaultScoreBar = () => {
+    const need = target && currentInnings ? Math.max(0, target - currentInnings.runs) : null;
+    const remainBalls = currentInnings ? (match.overs * match.ballsPerOver - currentInnings.balls) : null;
+
+    return (
+      <div className="w-full relative">
+        {/* Top gold border */}
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
         
-        {/* Left - Batting Info */}
-        <div className="flex items-center gap-3 px-3 flex-1 min-w-0">
-          {/* Team indicator */}
-          {battingTeam?.logo ? (
-            <img src={battingTeam.logo} alt={battingTeam.name} className="w-10 h-10 rounded flex-shrink-0 object-cover" />
-          ) : (
-            <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center font-display font-bold text-white text-sm" style={{ backgroundColor: t1Color }}>
-              {battingTeam?.name.slice(0, 3).toUpperCase()}
-            </div>
-          )}
-          {/* Batsmen */}
-          <div className="text-white text-sm leading-tight min-w-0">
+        {/* Main bar */}
+        <div className="relative flex items-stretch overflow-hidden" style={{ height: '68px' }}>
+          {/* Ornamental background pattern */}
+          <div className="absolute inset-0" style={{ 
+            background: 'linear-gradient(180deg, #2a1f6e 0%, #1a1452 40%, #120f42 100%)',
+          }}>
+            {/* Circular ornamental pattern overlay */}
+            <div className="absolute inset-0 opacity-[0.08]" style={{
+              backgroundImage: `radial-gradient(circle 20px, rgba(255,255,255,0.3) 0%, transparent 70%)`,
+              backgroundSize: '40px 40px',
+            }} />
+          </div>
+
+          {/* ===== LEFT: Batting team logo ===== */}
+          <div className="relative z-10 flex items-center justify-center flex-shrink-0" style={{ width: '68px', backgroundColor: batTeamColor }}>
+            <TeamBadge team={battingTeam || match.team1} color={batTeamColor} size={44} />
+            {/* Diagonal cut */}
+            <div className="absolute -right-4 top-0 bottom-0 w-8" style={{ background: batTeamColor, clipPath: 'polygon(0 0, 60% 0, 100% 100%, 0 100%)' }} />
+          </div>
+
+          {/* Left lightning bolt */}
+          <div className="relative z-20 flex items-center -ml-1 -mr-1 flex-shrink-0">
+            <LightningBolt />
+          </div>
+
+          {/* ===== LEFT: Batsmen info ===== */}
+          <div className="relative z-10 flex flex-col justify-center pl-3 pr-2 min-w-[160px]">
             {striker && (
               <div className="flex items-center gap-2">
-                <span className="font-bold">✓ {striker.name.toUpperCase()}</span>
-                <span className="font-bold text-lg">{striker.runs}</span>
-                <span className="text-white/60 text-xs">{striker.ballsFaced}</span>
+                <span className="text-cyan-300 text-xs">🏏</span>
+                <span className="font-display font-bold text-white text-sm uppercase tracking-wide">{striker.name.toUpperCase()}</span>
+                <span className="font-display font-bold text-[#ff4081] text-lg ml-auto">{striker.runs}</span>
+                <span className="text-white/50 text-xs">{striker.ballsFaced}</span>
               </div>
             )}
             {nonStriker && (
               <div className="flex items-center gap-2">
-                <span className="text-white/80">{nonStriker.name.toUpperCase()}</span>
-                <span className="font-semibold">{nonStriker.runs}</span>
-                <span className="text-white/60 text-xs">{nonStriker.ballsFaced}</span>
+                <span className="text-xs opacity-0">🏏</span>
+                <span className="font-display text-white/70 text-sm uppercase tracking-wide">{nonStriker.name.toUpperCase()}</span>
+                <span className="font-display font-semibold text-white/70 text-sm ml-auto">{nonStriker.runs}</span>
+                <span className="text-white/40 text-xs">{nonStriker.ballsFaced}</span>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Center - Score or Overlay */}
-        <div className="flex flex-col items-center justify-center px-4 min-w-[180px]">
-          {overlayData ? (
-            <div className={`px-6 py-1 rounded ${overlayData.bg}`}>
-              <span className={`font-display text-3xl font-bold ${overlayData.textColor} tracking-wider`}>{overlayData.text}</span>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-white text-xs">
-                <span>{match.team1.name.slice(0, 3).toUpperCase()} v <span className="font-bold">{match.team2.name.slice(0, 3).toUpperCase()}</span></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="bg-green-500 text-white font-bold px-3 py-0.5 rounded text-lg font-display">
-                  {currentInnings ? `${currentInnings.runs}-${currentInnings.wickets}` : '0-0'}
-                </span>
-                {currentInnings && (
-                  <span className="text-white text-xs">
-                    {getOversString(currentInnings.balls, match.ballsPerOver)} OVERS
-                  </span>
-                )}
-              </div>
-              {target && currentInnings && (
-                <div className="text-amber-300 text-[10px] font-bold uppercase">
-                  {battingTeam?.name} NEED {Math.max(0, target - currentInnings.runs)} RUNS
-                </div>
-              )}
-            </>
-          )}
-        </div>
+          {/* Center lightning bolt left */}
+          <div className="relative z-20 flex items-center -ml-1 -mr-1 flex-shrink-0">
+            <LightningBolt />
+          </div>
 
-        {/* Right - Bowling Info */}
-        <div className="flex items-center gap-3 px-3 flex-1 min-w-0 justify-end">
-          <div className="text-white text-sm text-right leading-tight">
-            {bowler && (
+          {/* ===== CENTER: Score, teams, target ===== */}
+          <div className="relative z-10 flex flex-col items-center justify-center px-3 min-w-[200px]">
+            {overlayData ? (
+              <div className="px-5 py-1.5 rounded-md animate-pulse" style={{ backgroundColor: overlayData.color }}>
+                <span className="font-display text-2xl font-black text-white tracking-wider drop-shadow-lg">{overlayData.text}</span>
+              </div>
+            ) : (
               <>
-                <div className="font-bold">{bowler.name.toUpperCase()}</div>
-                <div className="flex items-center gap-2 justify-end">
-                  <span className="font-semibold">{bowler.bowlingWickets}-{bowler.bowlingRuns}</span>
-                  <span className="text-white/60 text-xs">{getOversString(bowler.bowlingBalls, match.ballsPerOver)}</span>
+                {/* Team abbreviations */}
+                <div className="flex items-center gap-1.5 text-white text-xs font-display tracking-wider">
+                  <span>{(battingTeam || match.team1).name.slice(0, 3).toUpperCase()}</span>
+                  <span className="text-white/40">v</span>
+                  <span className="font-bold">{(bowlingTeam || match.team2).name.slice(0, 3).toUpperCase()}</span>
                 </div>
+                {/* Score badge + overs */}
+                <div className="flex items-center gap-2 mt-0.5">
+                  <div className="px-3 py-0.5 rounded font-display font-black text-white text-xl" style={{ backgroundColor: '#e91e63' }}>
+                    {currentInnings ? `${currentInnings.runs}-${currentInnings.wickets}` : '0-0'}
+                  </div>
+                  {currentInnings && (
+                    <span className="text-white/80 text-xs font-display font-semibold tracking-wide">
+                      {getOversString(currentInnings.balls, match.ballsPerOver)} <span className="text-[10px] text-white/50">OVERS</span>
+                    </span>
+                  )}
+                </div>
+                {/* Target info */}
+                {need !== null && need > 0 && remainBalls !== null && (
+                  <div className="text-[10px] text-white/90 font-display font-bold tracking-wider mt-0.5 uppercase">
+                    NEED <span className="text-amber-300">{need}</span> MORE RUNS FROM <span className="text-amber-300">{remainBalls}</span> BALLS
+                  </div>
+                )}
               </>
             )}
-            <OverBallsDisplay />
           </div>
-          {bowlingTeam?.logo ? (
-            <img src={bowlingTeam.logo} alt={bowlingTeam.name} className="w-10 h-10 rounded flex-shrink-0 object-cover" />
-          ) : (
-            <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center font-display font-bold text-white text-sm" style={{ backgroundColor: t2Color }}>
-              {bowlingTeam?.name.slice(0, 3).toUpperCase()}
+
+          {/* Center lightning bolt right */}
+          <div className="relative z-20 flex items-center -ml-1 -mr-1 flex-shrink-0">
+            <LightningBolt flip />
+          </div>
+
+          {/* ===== RIGHT: Bowler + This Over ===== */}
+          <div className="relative z-10 flex flex-col justify-center items-end pr-2 pl-3 min-w-[160px]">
+            {bowler && (
+              <div className="flex items-center gap-2">
+                <span className="font-display font-bold text-white text-sm uppercase tracking-wide">{bowler.name.toUpperCase()}</span>
+                <span className="font-display font-bold text-[#4caf50] text-lg">{bowler.bowlingWickets}-{bowler.bowlingRuns}</span>
+                <span className="text-white/50 text-xs">{getOversString(bowler.bowlingBalls, match.ballsPerOver)}</span>
+              </div>
+            )}
+            {/* This over balls */}
+            <div className="flex gap-1 mt-0.5">
+              {currentOverBalls.map((e, i) => (
+                <OverBallCircle key={i} event={e} />
+              ))}
+              {Array.from({ length: Math.max(0, match.ballsPerOver - currentOverBalls.length) }).map((_, i) => (
+                <div key={`e-${i}`} className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs" style={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.2)' }}>○</div>
+              ))}
             </div>
-          )}
+          </div>
+
+          {/* Right lightning bolt */}
+          <div className="relative z-20 flex items-center -ml-1 -mr-1 flex-shrink-0">
+            <LightningBolt flip />
+          </div>
+
+          {/* ===== RIGHT: Bowling team logo ===== */}
+          <div className="relative z-10 flex items-center justify-center flex-shrink-0" style={{ width: '68px', backgroundColor: bowlTeamColor }}>
+            {/* Diagonal cut */}
+            <div className="absolute -left-4 top-0 bottom-0 w-8" style={{ background: bowlTeamColor, clipPath: 'polygon(0 0, 100% 0, 100% 100%, 40% 100%)' }} />
+            <TeamBadge team={bowlingTeam || match.team2} color={bowlTeamColor} size={44} />
+          </div>
         </div>
 
-        {/* Right Team Color Strip */}
-        <div className="w-2 flex-shrink-0" style={{ backgroundColor: t2Color }} />
-        
-        {/* Decorative lightning bolts */}
-        <div className="absolute left-[28%] top-0 bottom-0 flex items-center pointer-events-none">
-          <span className="text-amber-500 text-2xl font-bold">⚡</span>
+        {/* Bottom gold border */}
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+      </div>
+    );
+  };
+
+  // ============ VS BANNER ============
+  const VSBanner = () => (
+    <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+      <div className="relative flex items-stretch h-[60px]" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+        {/* Team 1 */}
+        <div className={`flex items-center relative overflow-hidden flex-1 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}>
+          <div className="h-full flex items-center justify-center px-3 flex-shrink-0 relative z-10" style={{ backgroundColor: t1Color, minWidth: '60px' }}>
+            <TeamBadge team={match.team1} color={t1Color} />
+          </div>
+          <div className="absolute left-[60px] top-0 bottom-0 w-6 z-[5]" style={{ background: t1Color, clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
+          <span className="relative z-10 font-display text-2xl lg:text-3xl font-black text-white uppercase tracking-[0.12em] pl-6">{match.team1.name}</span>
         </div>
-        <div className="absolute right-[28%] top-0 bottom-0 flex items-center pointer-events-none">
-          <span className="text-amber-500 text-2xl font-bold">⚡</span>
+
+        {/* Center badge */}
+        <div className={`relative flex-shrink-0 flex items-center justify-center z-20 transition-all duration-700 delay-400 ${vsAnimIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`} style={{ width: '200px' }}>
+          <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-30"><LightningBolt /></div>
+          <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-30"><LightningBolt flip /></div>
+          <div className="absolute inset-0">
+            <svg viewBox="0 0 200 60" className="w-full h-full" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="vsBadgeBg" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#2a2878" />
+                  <stop offset="100%" stopColor="#141252" />
+                </linearGradient>
+                <linearGradient id="vsBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#e8a832" />
+                  <stop offset="100%" stopColor="#c17a1a" />
+                </linearGradient>
+              </defs>
+              <polygon points="20,0 180,0 200,30 180,60 20,60 0,30" fill="url(#vsBadgeBg)" stroke="url(#vsBorder)" strokeWidth="2" />
+            </svg>
+          </div>
+          <div className="relative z-10 text-center">
+            <div className="font-display text-[10px] text-amber-400 font-bold tracking-[0.2em] uppercase">{match.matchType || 'MATCH'}</div>
+            <div className="font-display text-white text-sm font-black tracking-wider">MATCH #{match.matchNo || 1}</div>
+            <div className="font-display text-[9px] text-white/50 tracking-widest uppercase">{match.overs} OVERS</div>
+          </div>
+        </div>
+
+        {/* Team 2 */}
+        <div className={`flex items-center justify-end relative overflow-hidden flex-1 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}>
+          <span className="relative z-10 font-display text-2xl lg:text-3xl font-black text-white uppercase tracking-[0.12em] pr-6">{match.team2.name}</span>
+          <div className="absolute right-[60px] top-0 bottom-0 w-6 z-[5]" style={{ background: t2Color, clipPath: 'polygon(100% 0, 100% 100%, 0 0)' }} />
+          <div className="h-full flex items-center justify-center px-3 flex-shrink-0 relative z-10" style={{ backgroundColor: t2Color, minWidth: '60px' }}>
+            <TeamBadge team={match.team2} color={t2Color} />
+          </div>
         </div>
       </div>
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
     </div>
   );
 
-  // VS Banner - ICC Broadcast Style
-
-  const VSBanner = () => {
-
-    return (
-      <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        {/* Thin green line at very top */}
-        <div className="h-[2px] w-full bg-green-500" />
-        
-        {/* Gold accent line */}
-        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-
-        {/* Main bar */}
-        <div className="relative flex items-stretch h-[56px]" style={{ background: 'linear-gradient(180deg, #1c1a5e 0%, #12104a 50%, #0a0836 100%)' }}>
-          
-          {/* === Team 1 Section === */}
-          <div className={`flex items-center relative overflow-hidden transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`} style={{ flex: '1 1 0' }}>
-            {/* Team 1 logo area with team color bg */}
-            <div className="h-full flex items-center justify-center px-2 flex-shrink-0 relative z-10" style={{ backgroundColor: t1Color, minWidth: '56px' }}>
-              {match.team1.logo ? (
-                <img src={match.team1.logo} alt={match.team1.name} className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
-              ) : (
-                <span className="font-display text-white font-bold text-lg">{match.team1.name.slice(0, 2).toUpperCase()}</span>
-              )}
-            </div>
-            {/* Diagonal cut from team color */}
-            <div className="absolute left-[56px] top-0 bottom-0 w-6 z-[5]" style={{ background: t1Color, clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
-            
-            {/* Team 1 Name */}
-            <span className="relative z-10 font-display text-xl md:text-2xl lg:text-3xl font-extrabold text-white uppercase tracking-[0.15em] pl-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
-              {match.team1.name}
-            </span>
-          </div>
-
-          {/* === Center Tournament Badge === */}
-          <div className={`relative flex-shrink-0 flex items-center justify-center z-20 transition-all duration-700 delay-400 ${vsAnimIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`} style={{ width: '240px' }}>
-            {/* Left lightning bolt */}
-            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-30">
-              <svg width="28" height="48" viewBox="0 0 28 48" fill="none">
-                <path d="M18 0L0 28h10L8 48l20-28H18L18 0z" fill="url(#bolt1)" />
-                <defs>
-                  <linearGradient id="bolt1" x1="14" y1="0" x2="14" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#f5c842" />
-                    <stop offset="1" stopColor="#c17a1a" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-            {/* Right lightning bolt */}
-            <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-30">
-              <svg width="28" height="48" viewBox="0 0 28 48" fill="none" style={{ transform: 'scaleX(-1)' }}>
-                <path d="M18 0L0 28h10L8 48l20-28H18L18 0z" fill="url(#bolt2)" />
-                <defs>
-                  <linearGradient id="bolt2" x1="14" y1="0" x2="14" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#f5c842" />
-                    <stop offset="1" stopColor="#c17a1a" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-
-            {/* Center badge background */}
-            <div className="absolute inset-0">
-              <svg viewBox="0 0 240 56" className="w-full h-full" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="badgeBg" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#2a2878" />
-                    <stop offset="50%" stopColor="#1e1b68" />
-                    <stop offset="100%" stopColor="#141252" />
-                  </linearGradient>
-                  <linearGradient id="badgeBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#e8a832" />
-                    <stop offset="50%" stopColor="#f5c842" />
-                    <stop offset="100%" stopColor="#c17a1a" />
-                  </linearGradient>
-                </defs>
-                <polygon points="24,0 216,0 240,28 216,56 24,56 0,28" fill="url(#badgeBg)" stroke="url(#badgeBorder)" strokeWidth="2" />
-              </svg>
-            </div>
-
-            {/* Badge text content */}
-            <div className="relative z-10 text-center px-8">
-              <div className="font-display text-[10px] text-amber-400 font-bold tracking-[0.2em] uppercase leading-tight">
-                {match.matchType || 'TOURNAMENT'}
-              </div>
-              <div className="font-display text-white text-sm font-extrabold tracking-wider leading-tight mt-0.5">
-                MATCH #{match.matchNo || 1}
-              </div>
-              <div className="font-display text-[9px] text-white/50 tracking-widest uppercase leading-tight mt-0.5">
-                {match.overs} OVERS
-              </div>
-            </div>
-          </div>
-
-          {/* === Team 2 Section === */}
-          <div className={`flex items-center justify-end relative overflow-hidden transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`} style={{ flex: '1 1 0' }}>
-            {/* Team 2 Name */}
-            <span className="relative z-10 font-display text-xl md:text-2xl lg:text-3xl font-extrabold text-white uppercase tracking-[0.15em] pr-6 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
-              {match.team2.name}
-            </span>
-            {/* Diagonal cut from team color */}
-            <div className="absolute right-[56px] top-0 bottom-0 w-6 z-[5]" style={{ background: t2Color, clipPath: 'polygon(100% 0, 100% 100%, 0 0)' }} />
-            {/* Team 2 logo area with team color bg */}
-            <div className="h-full flex items-center justify-center px-2 flex-shrink-0 relative z-10" style={{ backgroundColor: t2Color, minWidth: '56px' }}>
-              {match.team2.logo ? (
-                <img src={match.team2.logo} alt={match.team2.name} className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
-              ) : (
-                <span className="font-display text-white font-bold text-lg">{match.team2.name.slice(0, 2).toUpperCase()}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Gold accent line bottom */}
-        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-        {/* Thin green line at very bottom */}
-        <div className="h-[2px] w-full bg-green-500" />
-      </div>
-    );
-  };
-
-  // Target Banner  
+  // ============ TARGET BANNER ============
   const TargetBanner = () => {
     if (!target || !currentInnings || !battingTeam) return <VSBanner />;
     const need = Math.max(0, target - currentInnings.runs);
-    const rrr = currentInnings.balls < match.overs * match.ballsPerOver ? ((need / (match.overs * match.ballsPerOver - currentInnings.balls)) * match.ballsPerOver).toFixed(2) : '0.00';
+    const remainBalls = match.overs * match.ballsPerOver - currentInnings.balls;
+    const rrr = remainBalls > 0 ? ((need / remainBalls) * match.ballsPerOver).toFixed(2) : '0.00';
     return (
-      <div className="relative flex items-stretch h-14 border-y-2 border-amber-500" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-        <div className="w-2" style={{ backgroundColor: t1Color }} />
-        <div className="flex-1 flex items-center">
-          <div className="flex-1 flex items-center justify-center">
-            <span className="font-display text-xl font-bold text-white uppercase">{battingTeam.name}</span>
+      <div className="w-full relative">
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="relative flex items-stretch h-14" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+          <div className="w-2 flex-shrink-0" style={{ backgroundColor: batTeamColor }} />
+          <div className="flex-1 flex items-center justify-center gap-6 px-4">
+            <span className="font-display text-xl font-black text-white uppercase">{battingTeam.name}</span>
+            <div className="text-center">
+              <p className="font-display text-white font-bold text-sm uppercase">NEED <span className="text-amber-300 text-lg">{need}</span> RUNS FROM <span className="text-amber-300 text-lg">{remainBalls}</span> BALLS</p>
+              <p className="text-white/60 text-xs font-display">REQ. RR: <span className="text-amber-300">{rrr}</span></p>
+            </div>
+            <span className="font-display text-xl font-black text-white uppercase">{bowlingTeam?.name}</span>
           </div>
-          <div className="flex-1 text-center">
-            <p className="font-display text-white font-bold text-sm">{battingTeam.name.toUpperCase()} NEED {need} RUNS TO WIN</p>
-            <p className="text-amber-300 text-xs font-bold">AT {rrr} RUNS PER OVER</p>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <span className="font-display text-xl font-bold text-white uppercase">{bowlingTeam?.name}</span>
-          </div>
+          <div className="w-2 flex-shrink-0" style={{ backgroundColor: bowlTeamColor }} />
         </div>
-        <div className="w-2" style={{ backgroundColor: t2Color }} />
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
       </div>
     );
   };
 
-  // Batting Summary Card (like Summary.png)
+  // ============ BATTING SUMMARY ============
   const BattingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
     const inn = match.innings[inningsIdx];
     if (!inn) return <p className="text-white text-center p-8">Innings not available</p>;
@@ -342,91 +366,90 @@ const Scoreboard = () => {
     const blt = inn.bowlingTeamIndex === 0 ? match.team1 : match.team2;
     const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
     return (
-      <div className="w-full max-w-2xl mx-auto" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b-2 border-purple-800">
+      <div className="w-full max-w-2xl mx-auto overflow-hidden rounded-sm" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-2">
-            {blt.logo ? <img src={blt.logo} alt={blt.name} className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{ backgroundColor: blt.color || t1Color }} />}
-            <span className="font-display text-lg font-bold text-white uppercase">{blt.name}</span>
+            <TeamBadge team={bt} color={bt.color || t1Color} size={28} />
+            <span className="font-display text-lg font-black text-white uppercase">{bt.name} - BATTING</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-bold text-white uppercase">{bt.name}</span>
-            {bt.logo ? <img src={bt.logo} alt={bt.name} className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{ backgroundColor: bt.color || t2Color }} />}
+          <div className="font-display text-xl font-black text-white px-3 py-0.5 rounded" style={{ backgroundColor: '#e91e63' }}>
+            {inn.runs}-{inn.wickets}
           </div>
         </div>
-        {/* Players */}
-        <div className="divide-y divide-purple-800/50">
-          {bt.players.map((p, i) => {
-            const isNotOut = !p.isOut && (p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
-            const hasBatted = p.ballsFaced > 0 || p.isOut;
-            return (
-              <div key={p.id} className={`flex items-center px-4 py-1.5 ${isNotOut ? 'bg-pink-600/80' : hasBatted ? 'bg-white/5' : 'bg-transparent'}`}>
-                <span className={`font-display font-bold text-sm flex-1 ${isNotOut ? 'text-white' : hasBatted ? 'text-white' : 'text-white/40'} uppercase`}>
-                  {p.name}
-                </span>
-                {p.isOut && (
-                  <>
-                    <span className="text-white/60 text-xs mr-2">{p.dismissalType}</span>
-                    <span className="text-white/60 text-xs mr-4">b {p.dismissedBy}</span>
-                  </>
-                )}
-                {isNotOut && <span className="text-white text-xs mr-4 font-semibold">NOT OUT</span>}
-                {hasBatted && (
-                  <>
-                    <span className="font-display font-bold text-lg text-white w-10 text-right">{p.runs}</span>
-                    <span className="text-white/60 text-xs w-8 text-right">{p.ballsFaced}</span>
-                  </>
-                )}
+        <div className="px-4 py-1 text-[10px] text-white/50 font-bold flex border-b border-white/10">
+          <span className="flex-1">BATSMAN</span>
+          <span className="w-10 text-right">R</span>
+          <span className="w-10 text-right">B</span>
+          <span className="w-8 text-right">4s</span>
+          <span className="w-8 text-right">6s</span>
+        </div>
+        {bt.players.map(p => {
+          const isNotOut = !p.isOut && (p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
+          const hasBatted = p.ballsFaced > 0 || p.isOut;
+          if (!hasBatted) return null;
+          return (
+            <div key={p.id} className={`flex items-center px-4 py-1.5 border-b border-white/5 ${isNotOut ? 'bg-[#e91e63]/30' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <span className="font-display font-bold text-sm text-white uppercase">{p.name}</span>
+                {p.isOut && <span className="text-white/40 text-[10px] ml-2">{p.dismissalType} {p.dismissedBy ? `b ${p.dismissedBy}` : ''}</span>}
+                {isNotOut && <span className="text-[#4caf50] text-[10px] ml-2 font-bold">NOT OUT</span>}
               </div>
-            );
-          })}
+              <span className="w-10 text-right font-display font-bold text-white text-sm">{p.runs}</span>
+              <span className="w-10 text-right text-white/60 text-xs">{p.ballsFaced}</span>
+              <span className="w-8 text-right text-[#00bcd4] text-xs font-bold">{p.fours}</span>
+              <span className="w-8 text-right text-[#4caf50] text-xs font-bold">{p.sixes}</span>
+            </div>
+          );
+        })}
+        <div className="flex items-center justify-between px-4 py-2" style={{ background: 'linear-gradient(90deg, #e91e63, #e8a832)' }}>
+          <span className="font-display text-white font-bold text-xs uppercase">{match.matchType}</span>
+          <span className="text-white text-xs font-bold">EXTRAS: {extras}</span>
+          <span className="text-white text-xs font-bold">{getOversString(inn.balls, match.ballsPerOver)} OV</span>
+          <span className="font-display font-black text-white text-lg">{inn.runs}/{inn.wickets}</span>
         </div>
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-pink-600 to-amber-500">
-          <span className="font-display text-white font-bold text-sm">#{match.matchType.toUpperCase()}</span>
-          <span className="text-white font-bold">{extras} <span className="text-white/80 text-sm">EXTRAS</span></span>
-          <span className="text-white font-bold">{match.overs} <span className="text-white/80 text-sm">OVERS</span></span>
-          <span className="bg-pink-700 text-white font-display font-bold text-xl px-4 py-0.5 rounded">{inn.runs}-{inn.wickets}</span>
-        </div>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
       </div>
     );
   };
 
-  // Bowling Summary Card
+  // ============ BOWLING SUMMARY ============
   const BowlingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
     const inn = match.innings[inningsIdx];
     if (!inn) return <p className="text-white text-center p-8">Innings not available</p>;
     const blt = inn.bowlingTeamIndex === 0 ? match.team1 : match.team2;
     const bowlers = blt.players.filter(p => p.bowlingBalls > 0);
     return (
-      <div className="w-full max-w-2xl mx-auto" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-        <div className="px-4 py-2 border-b-2 border-purple-800">
-          <span className="font-display text-lg font-bold text-white uppercase">{blt.name} - Bowling</span>
+      <div className="w-full max-w-2xl mx-auto overflow-hidden rounded-sm" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="flex items-center gap-2 px-4 py-2">
+          <TeamBadge team={blt} color={blt.color || t2Color} size={28} />
+          <span className="font-display text-lg font-black text-white uppercase">{blt.name} - BOWLING</span>
         </div>
-        <div className="px-4 py-1 text-xs text-white/60 font-bold flex border-b border-purple-800/50">
+        <div className="px-4 py-1 text-[10px] text-white/50 font-bold flex border-b border-white/10">
           <span className="flex-1">BOWLER</span>
           <span className="w-12 text-right">O</span>
           <span className="w-12 text-right">R</span>
           <span className="w-12 text-right">W</span>
-          <span className="w-16 text-right">ECON</span>
+          <span className="w-14 text-right">ECON</span>
         </div>
         {bowlers.map(p => (
-          <div key={p.id} className="flex items-center px-4 py-1.5 border-b border-purple-800/30">
+          <div key={p.id} className="flex items-center px-4 py-1.5 border-b border-white/5">
             <span className="font-display font-bold text-sm text-white flex-1 uppercase">{p.name}</span>
-            <span className="w-12 text-right text-white">{getOversString(p.bowlingBalls, match.ballsPerOver)}</span>
-            <span className="w-12 text-right text-white">{p.bowlingRuns}</span>
-            <span className="w-12 text-right text-white font-bold">{p.bowlingWickets}</span>
-            <span className="w-16 text-right text-white/70">{getRunRate(p.bowlingRuns, p.bowlingBalls, match.ballsPerOver)}</span>
+            <span className="w-12 text-right text-white text-sm">{getOversString(p.bowlingBalls, match.ballsPerOver)}</span>
+            <span className="w-12 text-right text-white text-sm">{p.bowlingRuns}</span>
+            <span className="w-12 text-right text-[#e91e63] font-bold text-sm">{p.bowlingWickets}</span>
+            <span className="w-14 text-right text-white/60 text-sm">{getRunRate(p.bowlingRuns, p.bowlingBalls, match.ballsPerOver)}</span>
           </div>
         ))}
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
       </div>
     );
   };
 
-  // FOW
+  // ============ FALL OF WICKETS ============
   const FallOfWickets = () => {
     if (!currentInnings) return null;
-    const wicketEvents = currentInnings.events.filter(e => e.isWicket);
     let runningScore = 0;
     let runningBalls = 0;
     const fowList = currentInnings.events.map(e => {
@@ -439,95 +462,100 @@ const Scoreboard = () => {
       return null;
     }).filter(Boolean);
     return (
-      <div className="w-full max-w-2xl mx-auto" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-        <div className="px-4 py-2 border-b-2 border-purple-800">
-          <span className="font-display text-lg font-bold text-white">FALL OF WICKETS</span>
+      <div className="w-full max-w-2xl mx-auto overflow-hidden rounded-sm" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="px-4 py-2">
+          <span className="font-display text-lg font-black text-white">FALL OF WICKETS</span>
         </div>
         {fowList.map((f: any, i: number) => (
-          <div key={i} className="flex items-center px-4 py-1.5 border-b border-purple-800/30 text-white">
-            <span className="w-8 text-sm font-bold">{i + 1}.</span>
-            <span className="flex-1 font-display font-semibold uppercase">{f.name}</span>
+          <div key={i} className="flex items-center px-4 py-1.5 border-b border-white/5 text-white">
+            <span className="w-8 text-sm font-bold text-[#e91e63]">{i + 1}.</span>
+            <span className="flex-1 font-display font-semibold uppercase text-sm">{f.name}</span>
             <span className="font-bold">{f.score}</span>
-            <span className="text-white/60 text-xs ml-2">({f.overs})</span>
+            <span className="text-white/50 text-xs ml-2">({f.overs})</span>
           </div>
         ))}
-        {fowList.length === 0 && <p className="text-center text-white/50 py-4">No wickets fallen yet</p>}
+        {fowList.length === 0 && <p className="text-center text-white/40 py-4 text-sm font-display">NO WICKETS FALLEN YET</p>}
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
       </div>
     );
   };
 
-  // Partnership
+  // ============ PARTNERSHIP ============
   const Partnership = () => {
-    if (!striker || !nonStriker) return <p className="text-white text-center p-4">No active partnership</p>;
+    if (!striker || !nonStriker) return <p className="text-white text-center p-4 font-display">NO ACTIVE PARTNERSHIP</p>;
     return (
-      <div className="w-full max-w-2xl mx-auto p-4" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-        <h3 className="font-display text-lg font-bold text-white text-center mb-3">CURRENT PARTNERSHIP</h3>
-        <div className="flex items-center justify-around">
+      <div className="w-full max-w-2xl mx-auto overflow-hidden rounded-sm" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="px-4 py-2"><span className="font-display text-lg font-black text-white">CURRENT PARTNERSHIP</span></div>
+        <div className="flex items-center justify-around py-4 px-4">
           <div className="text-center">
-            <p className="font-display font-bold text-xl text-white">{striker.name}</p>
-            <p className="text-3xl font-bold text-green-400">{striker.runs}</p>
-            <p className="text-white/60 text-sm">({striker.ballsFaced} balls)</p>
+            <p className="font-display font-bold text-lg text-white uppercase">{striker.name}</p>
+            <p className="text-3xl font-black text-[#4caf50] font-display">{striker.runs}</p>
+            <p className="text-white/50 text-xs">({striker.ballsFaced} balls)</p>
           </div>
           <div className="text-center">
-            <p className="text-amber-300 text-sm font-bold">PARTNERSHIP</p>
-            <p className="font-display text-4xl font-bold text-white">{striker.runs + nonStriker.runs}</p>
+            <p className="text-amber-400 text-xs font-display font-bold tracking-widest">PARTNERSHIP</p>
+            <p className="font-display text-4xl font-black text-white">{striker.runs + nonStriker.runs}</p>
           </div>
           <div className="text-center">
-            <p className="font-display font-bold text-xl text-white">{nonStriker.name}</p>
-            <p className="text-3xl font-bold text-green-400">{nonStriker.runs}</p>
-            <p className="text-white/60 text-sm">({nonStriker.ballsFaced} balls)</p>
+            <p className="font-display font-bold text-lg text-white uppercase">{nonStriker.name}</p>
+            <p className="text-3xl font-black text-[#4caf50] font-display">{nonStriker.runs}</p>
+            <p className="text-white/50 text-xs">({nonStriker.ballsFaced} balls)</p>
           </div>
         </div>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
       </div>
     );
   };
 
-  // Teams Players
+  // ============ TEAMS ============
   const TeamsPlayers = () => (
-    <div className="w-full max-w-2xl mx-auto grid grid-cols-2 gap-0" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
+    <div className="w-full max-w-2xl mx-auto grid grid-cols-2 gap-0 overflow-hidden rounded-sm" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
       {[match.team1, match.team2].map((team, ti) => (
-        <div key={ti} className={ti === 0 ? 'border-r border-purple-800' : ''}>
-          <div className="px-3 py-2 text-center font-display font-bold text-white uppercase text-sm" style={{ backgroundColor: ti === 0 ? t1Color : t2Color }}>
+        <div key={ti} className={ti === 0 ? 'border-r border-white/10' : ''}>
+          <div className="px-3 py-2 text-center font-display font-black text-white uppercase text-sm flex items-center justify-center gap-2" style={{ backgroundColor: ti === 0 ? t1Color : t2Color }}>
+            <TeamBadge team={team} color={ti === 0 ? t1Color : t2Color} size={24} />
             {team.name}
           </div>
           {team.players.map((p, i) => (
-            <div key={p.id} className="px-3 py-1 text-white text-sm border-b border-purple-800/30 flex items-center gap-2">
-              <span className="text-white/50 text-xs">{i + 1}.</span>
+            <div key={p.id} className="px-3 py-1.5 text-white text-sm border-b border-white/5 flex items-center gap-2">
+              <span className="text-white/40 text-xs w-5">{i + 1}.</span>
               <span className="font-display uppercase">{p.name}</span>
             </div>
           ))}
-          {team.players.length === 0 && <p className="text-center text-white/40 py-4 text-sm">No players</p>}
+          {team.players.length === 0 && <p className="text-center text-white/30 py-4 text-sm font-display">NO PLAYERS</p>}
         </div>
       ))}
     </div>
   );
 
-  // Summary
+  // ============ MATCH SUMMARY ============
   const MatchSummary = () => (
-    <div className="w-full max-w-2xl mx-auto p-4" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-      <h3 className="font-display text-lg font-bold text-white text-center mb-3">MATCH SUMMARY</h3>
-      <div className="space-y-2 text-white text-sm">
-        <p><span className="text-white/60">Toss:</span> {match.tossWonBy === 0 ? match.team1.name : match.team2.name} won, opted to {match.optedTo}</p>
+    <div className="w-full max-w-2xl mx-auto overflow-hidden rounded-sm" style={{ background: 'linear-gradient(180deg, #2a1f6e 0%, #120f42 100%)' }}>
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+      <div className="px-4 py-2"><span className="font-display text-lg font-black text-white">MATCH SUMMARY</span></div>
+      <div className="space-y-2 text-white text-sm px-4 pb-4">
+        <p><span className="text-white/50">Toss:</span> <span className="font-display font-bold">{match.tossWonBy === 0 ? match.team1.name : match.team2.name}</span> won, opted to <span className="font-bold">{match.optedTo}</span></p>
         {match.innings.map((inn, idx) => {
           const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
-          return <p key={idx}><span className="text-white/60">{bt.name}:</span> {inn.runs}/{inn.wickets} ({getOversString(inn.balls, match.ballsPerOver)} ov)</p>;
+          return <p key={idx}><span className="text-white/50">{bt.name}:</span> <span className="font-display font-bold">{inn.runs}/{inn.wickets}</span> ({getOversString(inn.balls, match.ballsPerOver)} ov)</p>;
         })}
-        {match.winner && <p className="text-amber-300 font-display font-bold text-lg mt-3">{match.winner} won by {match.winMargin}</p>}
+        {match.winner && <p className="text-amber-300 font-display font-black text-xl mt-3">{match.winner} won by {match.winMargin}</p>}
       </div>
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
     </div>
   );
 
-  // Render based on display mode
+  // ============ RENDER ============
   const renderContent = () => {
     switch (display.mode) {
       case 'vs': return <VSBanner />;
       case 'target': return <TargetBanner />;
       case '1bat': return <BattingSummary inningsIdx={0} />;
       case '2bat': return <BattingSummary inningsIdx={1} />;
-      case '1ball': return <BowlingSummary inningsIdx={0} />;
-      case '2ball': return <BowlingSummary inningsIdx={1} />;
-      case 'b1': return <BowlingSummary inningsIdx={0} />;
-      case 'b2': return <BowlingSummary inningsIdx={1} />;
+      case '1ball': case 'b1': return <BowlingSummary inningsIdx={0} />;
+      case '2ball': case 'b2': return <BowlingSummary inningsIdx={1} />;
       case 'bowler': return bowler ? <BowlingSummary inningsIdx={match.currentInningsIndex} /> : <DefaultScoreBar />;
       case 'fow': return <FallOfWickets />;
       case 'partnership': return <Partnership />;
