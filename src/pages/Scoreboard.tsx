@@ -8,6 +8,8 @@ const Scoreboard = () => {
   const { id } = useParams<{ id: string }>();
   const [match, setMatch] = useState<Match | null>(null);
   const [display, setDisplay] = useState<DisplayState>({ mode: 'default', overlay: 'none', timestamp: 0 });
+  const vsAnimDone = useRef(false);
+  const [vsAnimIn, setVsAnimIn] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -18,6 +20,14 @@ const Scoreboard = () => {
     const cleanup = useDisplaySync(id, setDisplay);
     return () => { clearInterval(interval); cleanup(); };
   }, [id]);
+
+  useEffect(() => {
+    if (display.mode === 'vs' && !vsAnimDone.current) {
+      const t = setTimeout(() => { setVsAnimIn(true); vsAnimDone.current = true; }, 50);
+      return () => clearTimeout(t);
+    }
+    if (display.mode !== 'vs') { vsAnimDone.current = false; setVsAnimIn(false); }
+  }, [display.mode]);
 
   if (!match) return <div className="w-full h-screen bg-transparent" />;
 
@@ -177,15 +187,6 @@ const Scoreboard = () => {
   );
 
   // VS Banner - ICC Broadcast Style
-  const vsAnimDone = useRef(false);
-  const [vsAnimIn, setVsAnimIn] = useState(false);
-  useEffect(() => {
-    if (display.mode === 'vs' && !vsAnimDone.current) {
-      const t = setTimeout(() => { setVsAnimIn(true); vsAnimDone.current = true; }, 50);
-      return () => clearTimeout(t);
-    }
-    if (display.mode !== 'vs') { vsAnimDone.current = false; setVsAnimIn(false); }
-  }, [display.mode]);
 
   const VSBanner = () => {
 
