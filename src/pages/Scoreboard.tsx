@@ -176,33 +176,87 @@ const Scoreboard = () => {
     </div>
   );
 
-  // VS Banner
+  // VS Banner - ICC Broadcast Style
   const VSBanner = () => (
-    <div className="relative flex items-stretch h-14 border-y-2 border-amber-500" style={{ background: 'linear-gradient(180deg, #1a1a4e 0%, #0d0d3b 100%)' }}>
-      <div className="w-2" style={{ backgroundColor: t1Color }} />
-      <div className="flex-1 flex items-center justify-center gap-6">
-        <div className="flex items-center gap-2">
-          {match.team1.logo ? (
-            <img src={match.team1.logo} alt={match.team1.name} className="w-8 h-8 rounded-sm object-cover" />
-          ) : (
-            <div className="w-8 h-6 rounded-sm" style={{ backgroundColor: t1Color }} />
-          )}
-          <span className="font-display text-2xl font-bold text-white uppercase">{match.team1.name}</span>
+    <div className="relative w-full overflow-hidden">
+      {/* Top gold accent line */}
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #d4a017 0%, #f5c842 30%, #d4a017 50%, #f5c842 70%, #d4a017 100%)' }} />
+      
+      <div className="relative flex items-stretch h-16" style={{ background: 'linear-gradient(180deg, #1e1b4b 0%, #0f0a3e 100%)' }}>
+        {/* Team 1 Side */}
+        <div className="flex-1 flex items-center relative overflow-hidden">
+          {/* Diagonal accent */}
+          <div className="absolute left-0 top-0 bottom-0 w-20 skew-x-[-15deg] -ml-4" style={{ background: `linear-gradient(180deg, ${t1Color}cc, ${t1Color}88)` }} />
+          
+          {/* Team 1 Logo */}
+          <div className="relative z-10 ml-3 mr-3 flex-shrink-0">
+            {match.team1.logo ? (
+              <img src={match.team1.logo} alt={match.team1.name} className="w-10 h-10 object-contain drop-shadow-lg" />
+            ) : (
+              <div className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-sm border-2 border-white/30" style={{ backgroundColor: t1Color }}>
+                {match.team1.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+          
+          {/* Team 1 Name */}
+          <span className="relative z-10 font-display text-xl md:text-2xl font-extrabold text-white uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+            {match.team1.name}
+          </span>
         </div>
-        <div className="text-center">
-          <div className="font-display text-xs text-amber-300 font-bold">MATCH #{match.matchNo}</div>
-          <div className="font-display text-white text-xs">{match.matchType} · {match.overs} OVERS</div>
+
+        {/* Center - Match Info with diamond shape */}
+        <div className="relative flex-shrink-0 w-[200px] flex items-center justify-center z-20">
+          {/* Diamond/chevron background */}
+          <div className="absolute inset-0">
+            <svg viewBox="0 0 200 64" className="w-full h-full" preserveAspectRatio="none">
+              <polygon points="30,0 170,0 200,32 170,64 30,64 0,32" fill="url(#centerGrad)" stroke="#d4a017" strokeWidth="1.5" />
+              <defs>
+                <linearGradient id="centerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#2d2a6e" />
+                  <stop offset="100%" stopColor="#1a1750" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div className="relative z-10 text-center">
+            <div className="font-display text-[10px] text-amber-300 font-bold tracking-widest uppercase">
+              {match.matchType}
+            </div>
+            <div className="font-display text-white text-xs font-bold mt-0.5">
+              MATCH #{match.matchNo}
+            </div>
+            <div className="font-display text-[10px] text-white/60 mt-0.5">
+              {match.overs} OVERS
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="font-display text-2xl font-bold text-white uppercase">{match.team2.name}</span>
-          {match.team2.logo ? (
-            <img src={match.team2.logo} alt={match.team2.name} className="w-8 h-8 rounded-sm object-cover" />
-          ) : (
-            <div className="w-8 h-6 rounded-sm" style={{ backgroundColor: t2Color }} />
-          )}
+
+        {/* Team 2 Side */}
+        <div className="flex-1 flex items-center justify-end relative overflow-hidden">
+          {/* Diagonal accent */}
+          <div className="absolute right-0 top-0 bottom-0 w-20 skew-x-[15deg] -mr-4" style={{ background: `linear-gradient(180deg, ${t2Color}cc, ${t2Color}88)` }} />
+          
+          {/* Team 2 Name */}
+          <span className="relative z-10 font-display text-xl md:text-2xl font-extrabold text-white uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+            {match.team2.name}
+          </span>
+          
+          {/* Team 2 Logo */}
+          <div className="relative z-10 ml-3 mr-3 flex-shrink-0">
+            {match.team2.logo ? (
+              <img src={match.team2.logo} alt={match.team2.name} className="w-10 h-10 object-contain drop-shadow-lg" />
+            ) : (
+              <div className="w-10 h-10 rounded flex items-center justify-center text-white font-bold text-sm border-2 border-white/30" style={{ backgroundColor: t2Color }}>
+                {match.team2.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      <div className="w-2" style={{ backgroundColor: t2Color }} />
+      
+      {/* Bottom gold accent line */}
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #d4a017 0%, #f5c842 30%, #d4a017 50%, #f5c842 70%, #d4a017 100%)' }} />
     </div>
   );
 
