@@ -30,6 +30,10 @@ const MatchController = () => {
   const [byesChecked, setByesChecked] = useState(false);
   const [legByesChecked, setLegByesChecked] = useState(false);
   const [wicketChecked, setWicketChecked] = useState(false);
+  // Wicket system
+  const [wicketType, setWicketType] = useState('');
+  const [newBatterDialogOpen, setNewBatterDialogOpen] = useState(false);
+  const [newBatterName, setNewBatterName] = useState('');
   // Swap/Change dialogs
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
   const [retireDialogOpen, setRetireDialogOpen] = useState(false);
@@ -195,8 +199,10 @@ const MatchController = () => {
     if (!currentInnings || !bowler) return;
 
     if (wicketChecked) {
-      addWicket('bowled');
+      if (!wicketType) return; // must select wicket type first
+      addWicketWithRuns(wicketType, runs);
       setWicketChecked(false);
+      setWicketType('');
       resetCheckboxes();
       return;
     }
@@ -273,33 +279,88 @@ const MatchController = () => {
   };
 
   const addWicket = (dismissalType: string = 'bowled') => {
+    addWicketWithRuns(dismissalType, 0);
+  };
+
+  const addWicketWithRuns = (dismissalType: string, runs: number) => {
     if (!currentInnings || !striker || !bowler) return;
     sendOverlay('wicket');
     const updated = { ...match };
     const inn = updated.innings[updated.currentInningsIndex];
     const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
+    const isMankad = dismissalType === 'mankad';
+    const isRunOutNonStriker = dismissalType === 'run_out_non_striker';
     const event: BallEvent = {
-      id: crypto.randomUUID(), type: 'wicket', runs: 0, batsmanId: striker.id, bowlerId: bowler.id, isWicket: true, wicketType: dismissalType, isLegal: true, timestamp: Date.now(),
+      id: crypto.randomUUID(), type: 'wicket', runs, batsmanId: isRunOutNonStriker ? (nonStriker?.id || striker.id) : striker.id, bowlerId: bowler.id, isWicket: true, wicketType: dismissalType, isLegal: !isMankad, timestamp: Date.now(),
     };
     inn.events.push(event);
+    inn.runs += runs;
     inn.wickets += 1;
-    inn.balls += 1;
-    const batsmanRef = bt.players.find(p => p.id === striker.id)!;
-    batsmanRef.isOut = true; batsmanRef.dismissalType = dismissalType; batsmanRef.dismissedBy = bowler.name; batsmanRef.ballsFaced += 1;
+    if (!isMankad) inn.balls += 1;
+    
+    // Determine who is out
+    const outPlayerId = isRunOutNonStriker ? nonStriker?.id : striker.id;
+    const outPlayerRef = bt.players.find(p => p.id === outPlayerId);
+    if (outPlayerRef) {
+      outPlayerRef.isOut = true; 
+      outPlayerRef.dismissalType = dismissalType; 
+      outPlayerRef.dismissedBy = bowler.name;
+      if (!isRunOutNonStriker) outPlayerRef.ballsFaced += 1;
+    }
+    
+    // Add runs to striker
+    if (runs > 0) {
+      const batsmanRef = bt.players.find(p => p.id === striker.id)!;
+      batsmanRef.runs += runs;
+      if (!isRunOutNonStriker) { /* ballsFaced already counted */ } else { batsmanRef.ballsFaced += 1; }
+    } else if (!isRunOutNonStriker) {
+      const batsmanRef = bt.players.find(p => p.id === striker.id)!;
+      batsmanRef.ballsFaced += 1;
+    }
+
     const bowlerRef = blt.players.find(p => p.id === bowler.id)!;
-    bowlerRef.bowlingWickets += 1; bowlerRef.bowlingBalls += 1;
-    inn.currentStrikerId = undefined;
-    if (inn.wickets >= bt.players.length - 1 || inn.balls >= match.overs * match.ballsPerOver) {
+    bowlerRef.bowlingWickets += 1; 
+    if (!isMankad) bowlerRef.bowlingBalls += 1;
+    bowlerRef.bowlingRuns += runs;
+
+    // Set who needs replacing
+    if (isRunOutNonStriker) {
+      inn.currentNonStrikerId = undefined;
+    } else {
+      inn.currentStrikerId = undefined;
+    }
+
+    // Swap on odd runs
+    if (runs % 2 === 1 && !isRunOutNonStriker) {
+      const t = inn.currentStrikerId;
+      inn.currentStrikerId = inn.currentNonStrikerId;
+      inn.currentNonStrikerId = t;
+    }
+
+    if (inn.wickets >= bt.players.length - 1 || (!isMankad && inn.balls >= match.overs * match.ballsPerOver)) {
       inn.isComplete = true;
       if (updated.currentInningsIndex === 1) {
         updated.status = 'finished';
-        updated.winner = (inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2).name;
-        updated.winMargin = `${(target || 0) - 1 - inn.runs} runs`;
+        if (inn.runs >= (target || 0)) {
+          updated.winner = (inn.battingTeamIndex === 0 ? updated.team1 : updated.team2).name;
+          updated.winMargin = `${bt.players.length - 1 - inn.wickets} wickets`;
+        } else {
+          updated.winner = (inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2).name;
+          updated.winMargin = `${(target || 0) - 1 - inn.runs} runs`;
+        }
       }
     }
-    if (inn.balls % match.ballsPerOver === 0) { const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; inn.currentBowlerId = undefined; }
+    if (!isMankad && inn.balls % match.ballsPerOver === 0) { 
+      const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; inn.currentBowlerId = undefined; 
+    }
     save(updated);
+    
+    // Open new batter dialog if innings not complete
+    if (!inn.isComplete) {
+      setNewBatterName('');
+      setNewBatterDialogOpen(true);
+    }
   };
 
   const undo = () => {
@@ -523,6 +584,28 @@ const MatchController = () => {
                   <span className="text-sm font-bold text-yellow-300">Wicket 🏏</span>
                 </label>
               </div>
+
+              {/* How wicket fall? bar - shown when Wicket is checked */}
+              {wicketChecked && (
+                <div className="flex items-center justify-center gap-3 mb-4 bg-red-600 rounded-lg px-4 py-2.5">
+                  <span className="text-white font-bold text-sm whitespace-nowrap">How wicket fall?</span>
+                  <select
+                    value={wicketType}
+                    onChange={e => setWicketType(e.target.value)}
+                    className="bg-white text-black px-3 py-1.5 rounded text-sm font-medium min-w-[200px]"
+                  >
+                    <option value="">Choose below</option>
+                    <option value="bowled">Bowled</option>
+                    <option value="catch_out">Catch out</option>
+                    <option value="run_out_striker">Run out at striker end</option>
+                    <option value="run_out_non_striker">Run out at non-striker end</option>
+                    <option value="stumping">Stumping</option>
+                    <option value="lbw">LBW</option>
+                    <option value="hit_wicket">Hit wicket</option>
+                    <option value="mankad">Mankad (Ball not count)</option>
+                  </select>
+                </div>
+              )}
 
               {/* Circle Run Buttons */}
               {striker && bowler && (
@@ -848,6 +931,51 @@ const MatchController = () => {
               <div className="flex gap-2">
                 <Input value={newBowlerName} onChange={e => setNewBowlerName(e.target.value)} placeholder="New bowler name" className="flex-1" />
                 <Button onClick={changeBowler} className="bg-green-600 text-white">Add</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* New Batter Dialog - after wicket */}
+        <Dialog open={newBatterDialogOpen} onOpenChange={setNewBatterDialogOpen}>
+          <DialogContent className="bg-gradient-to-b from-cyan-400 to-cyan-500 border-none max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-center text-2xl font-display font-bold text-black">NEW BATTER</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 justify-center">
+                <Input
+                  value={newBatterName}
+                  onChange={e => setNewBatterName(e.target.value)}
+                  placeholder="Enter Player or Select from List"
+                  className="bg-white text-black border-white max-w-xs"
+                />
+              </div>
+              {availableBatsmen.length > 0 && (
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {availableBatsmen.map(p => (
+                    <Button key={p.id} size="sm" variant="outline" onClick={() => setNewBatterName(p.name)} className={`text-black border-black/40 ${newBatterName === p.name ? 'bg-green-300' : 'bg-white'}`}>
+                      {p.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-3 justify-center pt-2">
+                <Button onClick={() => {
+                  if (!newBatterName.trim() || !currentInnings) return;
+                  const updated = { ...match };
+                  const inn = updated.innings[updated.currentInningsIndex];
+                  const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
+                  let p = bt.players.find(pl => pl.name.toLowerCase() === newBatterName.trim().toLowerCase());
+                  if (!p) { p = createPlayer(newBatterName.trim()); bt.players.push(p); }
+                  // Fill whichever is empty
+                  if (!inn.currentStrikerId) inn.currentStrikerId = p.id;
+                  else if (!inn.currentNonStrikerId) inn.currentNonStrikerId = p.id;
+                  save(updated);
+                  setNewBatterName('');
+                  setNewBatterDialogOpen(false);
+                }} className="bg-green-600 hover:bg-green-700 text-white font-bold px-6">Add Batter</Button>
+                <Button onClick={() => setNewBatterDialogOpen(false)} className="bg-red-500 hover:bg-red-600 text-white font-bold px-6">Cancel</Button>
               </div>
             </div>
           </DialogContent>
