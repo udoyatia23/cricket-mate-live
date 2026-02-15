@@ -40,6 +40,7 @@ const MatchController = () => {
   const [changeBowlerDialogOpen, setChangeBowlerDialogOpen] = useState(false);
   const [newBowlerName, setNewBowlerName] = useState('');
   const [newBatsmanName, setNewBatsmanName] = useState('');
+  const [needsBowlerAfterWicket, setNeedsBowlerAfterWicket] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -359,7 +360,8 @@ const MatchController = () => {
         }
       }
     }
-    if (!isMankad && inn.balls % match.ballsPerOver === 0) { 
+    const isEndOfOver = !isMankad && inn.balls % match.ballsPerOver === 0;
+    if (isEndOfOver) { 
       const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; inn.currentBowlerId = undefined; 
     }
     save(updated);
@@ -368,6 +370,10 @@ const MatchController = () => {
     if (!inn.isComplete) {
       setNewBatterName('');
       setNewBatterDialogOpen(true);
+      // If end of over, also need bowler after batter is selected
+      if (isEndOfOver) {
+        setNeedsBowlerAfterWicket(true);
+      }
     }
   };
 
@@ -567,6 +573,16 @@ const MatchController = () => {
                 <ControlBtn label="PP+" color="bg-yellow-500 text-black" onClick={() => {}} />
                 <ControlBtn label={`END Inning ${match.currentInningsIndex + 1}`} color="bg-purple-600 text-white" onClick={endInnings} />
                 <ControlBtn label="UNDO" color="bg-red-600 text-white" onClick={undo} />
+              </div>
+
+              {/* Add New Batter / Select Bowler manual buttons */}
+              <div className="flex flex-wrap gap-2 justify-center mb-4">
+                {(!striker || !nonStriker) && !currentInnings.isComplete && (
+                  <ControlBtn label="Add New Batter" color="bg-black text-white ring-2 ring-red-500" onClick={() => { setNewBatterName(''); setNewBatterDialogOpen(true); }} />
+                )}
+                {!bowler && !currentInnings.isComplete && (
+                  <ControlBtn label="Select Bowler" color="bg-black text-white ring-2 ring-blue-500" onClick={() => { setNewBowlerName(''); setChangeBowlerDialogOpen(true); }} />
+                )}
               </div>
 
               {/* Checkbox Extras Row */}
@@ -982,6 +998,12 @@ const MatchController = () => {
                   save(updated);
                   setNewBatterName('');
                   setNewBatterDialogOpen(false);
+                  // If last ball of over caused this wicket, also need bowler
+                  if (needsBowlerAfterWicket) {
+                    setNeedsBowlerAfterWicket(false);
+                    setNewBowlerName('');
+                    setChangeBowlerDialogOpen(true);
+                  }
                 }} className="bg-green-600 hover:bg-green-700 text-white font-bold px-6">Add Batter</Button>
                 <Button onClick={() => setNewBatterDialogOpen(false)} className="bg-red-500 hover:bg-red-600 text-white font-bold px-6">Cancel</Button>
               </div>
