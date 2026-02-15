@@ -18,7 +18,7 @@ const Scoreboard = () => {
     };
     loadMatch();
     const interval = setInterval(loadMatch, 1500);
-    setDisplay(getDisplayState(id));
+    getDisplayState(id).then(ds => setDisplay(ds));
     const cleanup = useDisplaySync(id, setDisplay);
     return () => { clearInterval(interval); cleanup(); };
   }, [id]);
