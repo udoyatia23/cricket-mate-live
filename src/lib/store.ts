@@ -1,64 +1,95 @@
 import { Tournament, Match } from '@/types/cricket';
+import { supabase } from '@/integrations/supabase/client';
 
-const TOURNAMENTS_KEY = 'cricscorer_tournaments';
-const MATCHES_KEY = 'cricscorer_matches';
+// ===== TOURNAMENT OPERATIONS =====
 
-export function getTournaments(): Tournament[] {
-  const data = localStorage.getItem(TOURNAMENTS_KEY);
-  return data ? JSON.parse(data) : [];
+export async function getTournaments(): Promise<Tournament[]> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(t => ({
+    id: t.id,
+    name: t.name,
+    address: t.address || '',
+    matches: [],
+    createdAt: t.created_at,
+  }));
 }
 
-export function saveTournaments(tournaments: Tournament[]) {
-  localStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(tournaments));
+export async function addTournament(tournament: Tournament): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from('tournaments').insert({
+    owner_id: user.id,
+    name: tournament.name,
+    address: tournament.address,
+  });
 }
 
-export function addTournament(tournament: Tournament) {
-  const tournaments = getTournaments();
-  tournaments.push(tournament);
-  saveTournaments(tournaments);
+export async function deleteTournament(id: string): Promise<void> {
+  await supabase.from('tournaments').delete().eq('id', id);
 }
 
-export function deleteTournament(id: string) {
-  const tournaments = getTournaments().filter(t => t.id !== id);
-  saveTournaments(tournaments);
-  // Also delete associated matches
-  const matches = getMatches().filter(m => m.tournamentId !== id);
-  saveMatches(matches);
+export async function getTournament(id: string): Promise<Tournament | undefined> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return undefined;
+  return {
+    id: data.id,
+    name: data.name,
+    address: data.address || '',
+    matches: [],
+    createdAt: data.created_at,
+  };
 }
 
-export function getTournament(id: string): Tournament | undefined {
-  return getTournaments().find(t => t.id === id);
+// ===== MATCH OPERATIONS =====
+
+export async function addMatch(match: Match): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from('matches').insert({
+    owner_id: user.id,
+    tournament_id: match.tournamentId,
+    match_data: JSON.parse(JSON.stringify(match)),
+  });
 }
 
-export function getMatches(): Match[] {
-  const data = localStorage.getItem(MATCHES_KEY);
-  return data ? JSON.parse(data) : [];
+export async function getMatch(id: string): Promise<Match | undefined> {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return undefined;
+  const md = data.match_data as Record<string, unknown>;
+  return { ...md, id: data.id } as unknown as Match;
 }
 
-export function saveMatches(matches: Match[]) {
-  localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
+export async function updateMatch(match: Match): Promise<void> {
+  await supabase.from('matches').update({
+    match_data: JSON.parse(JSON.stringify(match)),
+  }).eq('id', match.id);
 }
 
-export function addMatch(match: Match) {
-  const matches = getMatches();
-  matches.push(match);
-  saveMatches(matches);
+export async function getMatchesForTournament(tournamentId: string): Promise<Match[]> {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(m => {
+    const md = m.match_data as Record<string, unknown>;
+    return { ...md, id: m.id } as unknown as Match;
+  });
 }
 
-export function getMatch(id: string): Match | undefined {
-  return getMatches().find(m => m.id === id);
-}
-
-export function updateMatch(match: Match) {
-  const matches = getMatches().map(m => m.id === match.id ? match : m);
-  saveMatches(matches);
-}
-
-export function getMatchesForTournament(tournamentId: string): Match[] {
-  return getMatches().filter(m => m.tournamentId === tournamentId);
-}
-
-export function deleteMatch(id: string) {
-  const matches = getMatches().filter(m => m.id !== id);
-  saveMatches(matches);
+export async function deleteMatch(id: string): Promise<void> {
+  await supabase.from('matches').delete().eq('id', id);
 }

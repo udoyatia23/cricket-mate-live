@@ -1,24 +1,32 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Trophy, Plus, Trash2, ArrowRight } from 'lucide-react';
+import { Trophy, Plus, Trash2, ArrowRight, LogOut } from 'lucide-react';
 import { Tournament } from '@/types/cricket';
 import { getTournaments, addTournament, deleteTournament } from '@/lib/store';
+import { useAuth } from '@/hooks/useAuth';
 
 const Dashboard = () => {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const loadTournaments = async () => {
+    const data = await getTournaments();
+    setTournaments(data);
+  };
 
   useEffect(() => {
-    setTournaments(getTournaments());
+    loadTournaments();
   }, []);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) return;
     const t: Tournament = {
       id: crypto.randomUUID(),
@@ -27,27 +35,37 @@ const Dashboard = () => {
       matches: [],
       createdAt: new Date().toISOString(),
     };
-    addTournament(t);
-    setTournaments(getTournaments());
+    await addTournament(t);
+    await loadTournaments();
     setName('');
     setAddress('');
     setOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    deleteTournament(id);
-    setTournaments(getTournaments());
+  const handleDelete = async (id: string) => {
+    await deleteTournament(id);
+    await loadTournaments();
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <Link to="/" className="flex items-center gap-2">
             <Trophy className="h-6 w-6 text-primary" />
             <span className="font-display text-xl font-bold tracking-wide">CricScorer</span>
           </Link>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="mr-1 h-4 w-4" /> Logout
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -68,21 +86,11 @@ const Dashboard = () => {
               <div className="space-y-4 mt-4">
                 <div>
                   <Label>Tournament Name</Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Champions Trophy 2026"
-                    className="mt-1 bg-secondary border-border"
-                  />
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Champions Trophy 2026" className="mt-1 bg-secondary border-border" />
                 </div>
                 <div>
                   <Label>Location / Address</Label>
-                  <Input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Dhaka Stadium"
-                    className="mt-1 bg-secondary border-border"
-                  />
+                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. Dhaka Stadium" className="mt-1 bg-secondary border-border" />
                 </div>
                 <div className="flex gap-3 justify-end">
                   <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
@@ -108,18 +116,11 @@ const Dashboard = () => {
                     <h3 className="font-display text-lg font-semibold">{t.name}</h3>
                     {t.address && <p className="text-sm text-muted-foreground mt-1">{t.address}</p>}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDelete(t.id)}
-                  >
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDelete(t.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Created {new Date(t.createdAt).toLocaleDateString()}
-                </p>
+                <p className="text-xs text-muted-foreground mb-4">Created {new Date(t.createdAt).toLocaleDateString()}</p>
                 <Link to={`/tournament/${t.id}`}>
                   <Button variant="secondary" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                     Open Tournament

@@ -42,7 +42,9 @@ const MatchController = () => {
   const [newBatsmanName, setNewBatsmanName] = useState('');
 
   useEffect(() => {
-    if (id) setMatch(getMatch(id) || null);
+    if (id) {
+      getMatch(id).then(m => setMatch(m || null));
+    }
   }, [id]);
 
   useEffect(() => {
@@ -52,9 +54,16 @@ const MatchController = () => {
     }
   }, [match?.id]);
 
+  const [tournamentName, setTournamentName] = useState('Tournament');
+  useEffect(() => {
+    if (match?.tournamentId) {
+      getTournament(match.tournamentId).then(t => setTournamentName(t?.name || 'Tournament'));
+    }
+  }, [match?.tournamentId]);
+
   const save = useCallback((m: Match) => {
     setMatch({ ...m });
-    updateMatch(m);
+    updateMatch(m).catch(console.error);
   }, []);
 
   const sendDisplay = (mode: DisplayMode) => {
@@ -91,7 +100,6 @@ const MatchController = () => {
   const nonStriker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentNonStrikerId) : null;
   const bowler = currentInnings && bowlingTeam ? bowlingTeam.players.find(p => p.id === currentInnings.currentBowlerId) : null;
   const target = match.currentInningsIndex === 1 && match.innings[0] ? match.innings[0].runs + 1 : null;
-  const tournamentName = getTournament(match.tournamentId)?.name || 'Tournament';
 
   const openInningsDialog = (inningsIndex: 0 | 1) => {
     setInningsDialogType(inningsIndex);

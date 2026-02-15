@@ -14,10 +14,10 @@ const Landing = () => {
             <span className="font-display text-xl font-bold tracking-wide">CricScorer</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link to="/dashboard">
-              <Button variant="ghost" size="sm">Dashboard</Button>
+            <Link to="/auth">
+              <Button variant="ghost" size="sm">Login</Button>
             </Link>
-            <Link to="/dashboard">
+            <Link to="/auth">
               <Button size="sm">Get Started</Button>
             </Link>
           </div>
@@ -38,7 +38,7 @@ const Landing = () => {
             Professional cricket scoring made simple. Create tournaments, manage matches, and share live scoreboards — all from your browser.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/dashboard">
+            <Link to="/auth">
               <Button size="lg" className="text-lg px-8 py-6 font-display tracking-wide">
                 <Zap className="mr-2 h-5 w-5" />
                 Start Scoring
