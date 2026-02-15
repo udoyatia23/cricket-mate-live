@@ -254,7 +254,7 @@ const MatchController = () => {
     bowlerRef.bowlingBalls += 1;
     if (runs % 2 === 1) { const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; }
     if (inn.balls % match.ballsPerOver === 0) { const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; inn.currentBowlerId = undefined; }
-    if (inn.balls >= match.overs * match.ballsPerOver || inn.wickets >= bt.players.length - 1) inn.isComplete = true;
+    if (inn.balls >= match.overs * match.ballsPerOver) inn.isComplete = true;
     if (updated.currentInningsIndex === 1 && target && inn.runs >= target) {
       inn.isComplete = true; updated.status = 'finished';
       updated.winner = (inn.battingTeamIndex === 0 ? updated.team1 : updated.team2).name;
@@ -347,7 +347,9 @@ const MatchController = () => {
       inn.currentNonStrikerId = t;
     }
 
-    if (inn.wickets >= bt.players.length - 1 || (!isMankad && inn.balls >= match.overs * match.ballsPerOver)) {
+    // Only auto-complete on overs limit, NOT on player count (allow adding new players dynamically)
+    const oversComplete = !isMankad && inn.balls >= match.overs * match.ballsPerOver;
+    if (oversComplete) {
       inn.isComplete = true;
       if (updated.currentInningsIndex === 1) {
         updated.status = 'finished';
@@ -366,11 +368,10 @@ const MatchController = () => {
     }
     save(updated);
     
-    // Open new batter dialog if innings not complete
+    // Always open new batter dialog after wicket if innings not complete
     if (!inn.isComplete) {
       setNewBatterName('');
       setNewBatterDialogOpen(true);
-      // If end of over, also need bowler after batter is selected
       if (isEndOfOver) {
         setNeedsBowlerAfterWicket(true);
       }
