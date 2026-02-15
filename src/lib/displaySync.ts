@@ -1,4 +1,5 @@
-// Sync display state between Controller and Scoreboard via localStorage
+// Sync display state between Controller and Scoreboard via Supabase realtime
+import { supabase } from '@/integrations/supabase/client';
 
 export type DisplayMode = 
   | 'default' | 'score' | '1bat' | '1ball' | '2bat' | '2ball' 
@@ -15,35 +16,48 @@ export interface DisplayState {
   timestamp: number;
 }
 
-const DISPLAY_KEY = (matchId: string) => `cricscorer_display_${matchId}`;
+const DEFAULT_STATE: DisplayState = { mode: 'default', overlay: 'none', timestamp: 0 };
 
-export function setDisplayState(matchId: string, state: Partial<DisplayState>) {
-  const current = getDisplayState(matchId);
+export async function setDisplayState(matchId: string, state: Partial<DisplayState>) {
+  const current = await getDisplayState(matchId);
   const updated = { ...current, ...state, timestamp: Date.now() };
-  localStorage.setItem(DISPLAY_KEY(matchId), JSON.stringify(updated));
-  // Trigger storage event for same-tab listeners
-  window.dispatchEvent(new CustomEvent('display-sync', { detail: { matchId, state: updated } }));
+  await (supabase.from('matches') as any).update({
+    display_state: updated,
+  }).eq('id', matchId);
 }
 
-export function getDisplayState(matchId: string): DisplayState {
-  const data = localStorage.getItem(DISPLAY_KEY(matchId));
-  if (data) return JSON.parse(data);
-  return { mode: 'default', overlay: 'none', timestamp: Date.now() };
+export async function getDisplayState(matchId: string): Promise<DisplayState> {
+  const { data } = await (supabase.from('matches') as any)
+    .select('display_state')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (data?.display_state) {
+    return data.display_state as DisplayState;
+  }
+  return { ...DEFAULT_STATE, timestamp: Date.now() };
 }
 
 export function useDisplaySync(matchId: string, callback: (state: DisplayState) => void) {
-  // Returns cleanup function
-  const handler = (e: Event) => {
-    const detail = (e as CustomEvent).detail;
-    if (detail.matchId === matchId) callback(detail.state);
-  };
-  const storageHandler = () => callback(getDisplayState(matchId));
-  
-  window.addEventListener('display-sync', handler);
-  window.addEventListener('storage', storageHandler);
-  
+  const channel = supabase
+    .channel(`display-${matchId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'matches',
+        filter: `id=eq.${matchId}`,
+      },
+      (payload) => {
+        const ds = (payload.new as any)?.display_state;
+        if (ds) {
+          callback(ds as DisplayState);
+        }
+      }
+    )
+    .subscribe();
+
   return () => {
-    window.removeEventListener('display-sync', handler);
-    window.removeEventListener('storage', storageHandler);
+    supabase.removeChannel(channel);
   };
 }
