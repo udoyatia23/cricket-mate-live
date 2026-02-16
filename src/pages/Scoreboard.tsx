@@ -24,13 +24,35 @@ const Scoreboard = () => {
       } catch (e) { console.error('Failed to load match:', e); }
     };
 
+    const loadDisplay = async () => {
+      try {
+        const ds = await getDisplayState(id);
+        if (mounted) setDisplay(ds);
+      } catch (e) { console.error(e); }
+    };
+
     // Initial load
     loadMatch();
-    getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
+    loadDisplay();
 
-    // SINGLE realtime channel for instant updates
-    const channel = supabase
-      .channel(`sb-live-${id}-${Date.now()}`)
+    // PRIMARY: Broadcast channel (instant, bypasses DB)
+    const broadcastCh = supabase
+      .channel(`broadcast-${id}`)
+      .on('broadcast', { event: 'match_update' }, (payload) => {
+        if (!mounted) return;
+        const data = payload.payload;
+        if (data?.match_data) {
+          setMatch({ ...data.match_data, id } as unknown as Match);
+        }
+        if (data?.display_state) {
+          setDisplay(prev => ({ ...prev, ...data.display_state }));
+        }
+      })
+      .subscribe();
+
+    // BACKUP: Postgres changes (slower but reliable if broadcast fails)
+    const pgCh = supabase
+      .channel(`pg-${id}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
@@ -45,26 +67,16 @@ const Scoreboard = () => {
           }
         }
       )
-      .subscribe((status) => {
-        if (!mounted) return;
-        if (status === 'SUBSCRIBED') {
-          // Realtime connected - minimal safety poll only
-          if (fallbackTimer) clearInterval(fallbackTimer);
-          fallbackTimer = setInterval(loadMatch, 60000);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Realtime failed - fast polling fallback
-          if (fallbackTimer) clearInterval(fallbackTimer);
-          fallbackTimer = setInterval(loadMatch, 2000);
-        }
-      });
+      .subscribe();
 
-    // Quick poll until realtime connects
-    fallbackTimer = setInterval(loadMatch, 3000);
+    // Safety poll every 60s
+    fallbackTimer = setInterval(loadMatch, 60000);
 
     return () => {
       mounted = false;
       if (fallbackTimer) clearInterval(fallbackTimer);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(broadcastCh);
+      supabase.removeChannel(pgCh);
     };
   }, [id]);
 
