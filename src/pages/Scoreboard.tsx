@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Match, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
 import { getDisplayState, useDisplaySync, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
+import { supabase } from '@/integrations/supabase/client';
 
 const Scoreboard = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,14 +18,30 @@ const Scoreboard = () => {
     const loadMatch = async () => {
       try {
         const m = await getMatch(id);
-        if (mounted) setMatch(m || null);
+        if (mounted && m) setMatch(m); // Only update if valid data - never reset to null
       } catch (e) { console.error('Failed to load match:', e); }
     };
     loadMatch();
-    const interval = setInterval(loadMatch, 800); // faster polling
+    const interval = setInterval(loadMatch, 500); // faster polling for near-instant sync
     getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
     const cleanup = useDisplaySync(id, (ds) => { if (mounted) setDisplay(ds); });
-    return () => { mounted = false; clearInterval(interval); cleanup(); };
+
+    // Realtime match_data sync for instant score updates
+    const matchChannel = supabase
+      .channel(`match-data-${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
+        (payload) => {
+          const md = (payload.new as any)?.match_data;
+          if (md && mounted) {
+            setMatch({ ...md, id } as unknown as Match);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { mounted = false; clearInterval(interval); cleanup(); supabase.removeChannel(matchChannel); };
   }, [id]);
 
   useEffect(() => {
