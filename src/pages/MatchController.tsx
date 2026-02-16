@@ -209,27 +209,35 @@ const MatchController = () => {
 
   // Handle run scoring with checkbox extras
   const handleScore = (runs: number) => {
-    if (!currentInnings || !bowler) return;
+    if (!currentInnings || !striker || !bowler) return;
     if (scoringLock.current) return;
 
     if (wicketChecked) {
       if (!wicketType) return; // must select wicket type first - don't lock yet
-      scoringLock.current = true;
-      addWicketWithRuns(wicketType, runs);
-      setWicketChecked(false);
-      setWicketType('');
-      resetCheckboxes();
-      return;
     }
 
+    // Lock ONLY after all validations pass
     scoringLock.current = true;
 
-    if (wideChecked) { addExtraWithRuns('wide', runs); resetCheckboxes(); return; }
-    if (noBallChecked) { addExtraWithRuns('noBall', runs); resetCheckboxes(); return; }
-    if (byesChecked) { addExtraWithRuns('bye', runs); resetCheckboxes(); return; }
-    if (legByesChecked) { addExtraWithRuns('legBye', runs); resetCheckboxes(); return; }
+    try {
+      if (wicketChecked) {
+        addWicketWithRuns(wicketType, runs);
+        setWicketChecked(false);
+        setWicketType('');
+        resetCheckboxes();
+        return;
+      }
 
-    addRuns(runs);
+      if (wideChecked) { addExtraWithRuns('wide', runs); resetCheckboxes(); return; }
+      if (noBallChecked) { addExtraWithRuns('noBall', runs); resetCheckboxes(); return; }
+      if (byesChecked) { addExtraWithRuns('bye', runs); resetCheckboxes(); return; }
+      if (legByesChecked) { addExtraWithRuns('legBye', runs); resetCheckboxes(); return; }
+
+      addRuns(runs);
+    } catch (e) {
+      console.error('Scoring error:', e);
+      scoringLock.current = false;
+    }
   };
 
   const resetCheckboxes = () => {
@@ -276,7 +284,7 @@ const MatchController = () => {
   };
 
   const addExtraWithRuns = (type: 'wide' | 'noBall' | 'bye' | 'legBye', runs: number) => {
-    if (!currentInnings || !bowler) return;
+    if (!currentInnings || !bowler) { scoringLock.current = false; return; }
     const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
@@ -300,7 +308,7 @@ const MatchController = () => {
   };
 
   const addWicketWithRuns = (dismissalType: string, runs: number) => {
-    if (!currentInnings || !striker || !bowler) return;
+    if (!currentInnings || !striker || !bowler) { scoringLock.current = false; return; }
     sendOverlay('wicket');
     const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
