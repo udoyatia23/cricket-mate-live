@@ -66,9 +66,9 @@ const MatchController = () => {
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
-    updateMatch(deep).catch(console.error).finally(() => {
-      scoringLock.current = false;
-    });
+    // Release lock IMMEDIATELY after local state update - DB save is fire-and-forget
+    scoringLock.current = false;
+    updateMatch(deep).catch(console.error);
   }, []);
 
   const sendDisplay = (mode: DisplayMode) => {
