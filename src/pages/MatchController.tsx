@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,7 @@ const MatchController = () => {
   const [newBowlerName, setNewBowlerName] = useState('');
   const [newBatsmanName, setNewBatsmanName] = useState('');
   const [needsBowlerAfterWicket, setNeedsBowlerAfterWicket] = useState(false);
+  const scoringLock = useRef(false);
 
   useEffect(() => {
     if (id) {
@@ -65,7 +66,9 @@ const MatchController = () => {
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
-    updateMatch(deep).catch(console.error);
+    updateMatch(deep).catch(console.error).finally(() => {
+      scoringLock.current = false;
+    });
   }, []);
 
   const sendDisplay = (mode: DisplayMode) => {
@@ -207,6 +210,8 @@ const MatchController = () => {
   // Handle run scoring with checkbox extras
   const handleScore = (runs: number) => {
     if (!currentInnings || !bowler) return;
+    if (scoringLock.current) return;
+    scoringLock.current = true;
 
     if (wicketChecked) {
       if (!wicketType) return; // must select wicket type first
