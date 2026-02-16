@@ -76,14 +76,11 @@ const MatchController = () => {
 
   const pendingOverlay = useRef<AnimationOverlay | null>(null);
 
-  const broadcastUpdate = useCallback((matchData?: Match, displayState?: any) => {
+  const broadcastPayload = useCallback((payload: any) => {
     broadcastChannel.current?.send({
       type: 'broadcast',
       event: 'match_update',
-      payload: {
-        ...(matchData ? { match_data: matchData } : {}),
-        ...(displayState ? { display_state: displayState } : {}),
-      },
+      payload,
     });
   }, []);
 
@@ -91,50 +88,48 @@ const MatchController = () => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
     scoringLock.current = false;
-    // Send match_data + any pending overlay in ONE broadcast (ensures instant sync)
+    // Send match_data + any pending overlay in ONE single broadcast
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
     const payload: any = { match_data: deep };
     if (overlay) {
       payload.display_state = { overlay, timestamp: Date.now() };
     }
-    broadcastChannel.current?.send({
-      type: 'broadcast',
-      event: 'match_update',
-      payload,
-    });
+    broadcastPayload(payload);
     // Persist to DB (fire-and-forget)
     updateMatch(deep).catch(console.error);
-    // Also persist overlay to DB if any
     if (overlay && id) {
       setDisplayState(id, { overlay });
       if (overlay !== 'none') {
         setTimeout(() => {
-          broadcastUpdate(undefined, { overlay: 'none', timestamp: Date.now() });
+          broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
           setDisplayState(id, { overlay: 'none' });
         }, 3000);
       }
     }
-  }, [broadcastUpdate, id]);
+  }, [broadcastPayload, id]);
 
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
     setActiveDisplay(mode);
     const ds = { mode, overlay: 'none' as AnimationOverlay, timestamp: Date.now() };
-    broadcastUpdate(undefined, ds);
+    broadcastPayload({ display_state: ds });
     setDisplayState(id, { mode });
   };
 
+  // For scoring: just set pendingOverlay (will be sent with match_data in save())
   const sendOverlay = (overlay: AnimationOverlay) => {
-    // Store overlay to be sent with next save() call in a single broadcast
     pendingOverlay.current = overlay;
-    // Also send standalone for display-only changes (no match_data)
+  };
+
+  // For standalone overlay buttons (display panel) - send immediately
+  const sendOverlayStandalone = (overlay: AnimationOverlay) => {
     if (!id) return;
-    broadcastUpdate(undefined, { overlay, timestamp: Date.now() });
+    broadcastPayload({ display_state: { overlay, timestamp: Date.now() } });
     setDisplayState(id, { overlay });
     if (overlay !== 'none') {
       setTimeout(() => {
-        broadcastUpdate(undefined, { overlay: 'none' as AnimationOverlay, timestamp: Date.now() });
+        broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
         setDisplayState(id, { overlay: 'none' });
       }, 3000);
     }
@@ -143,7 +138,7 @@ const MatchController = () => {
   const sendCustomText = () => {
     if (!id || !customInput.trim()) return;
     const ds = { customText: customInput, timestamp: Date.now() };
-    broadcastUpdate(undefined, ds);
+    broadcastPayload({ display_state: ds });
     setDisplayState(id, { customText: customInput });
   };
 
@@ -854,13 +849,13 @@ const MatchController = () => {
         <Section>
           <h3 className="font-display text-center font-bold mb-3">Animations</h3>
           <div className="flex flex-wrap gap-2 justify-center">
-            <ControlBtn label="FREE HIT" color="bg-red-500 text-white" onClick={() => sendOverlay('free_hit')} />
-            <ControlBtn label="HAT-TRICK BALL" color="bg-rose-600 text-white" onClick={() => sendOverlay('hat_trick')} />
-            <ControlBtn label="FOUR" color="bg-blue-600 text-white" onClick={() => sendOverlay('four')} />
-            <ControlBtn label="SIX" color="bg-blue-700 text-white" onClick={() => sendOverlay('six')} />
-            <ControlBtn label="WICKET" color="bg-red-600 text-white" onClick={() => sendOverlay('wicket')} />
+            <ControlBtn label="FREE HIT" color="bg-red-500 text-white" onClick={() => sendOverlayStandalone('free_hit')} />
+            <ControlBtn label="HAT-TRICK BALL" color="bg-rose-600 text-white" onClick={() => sendOverlayStandalone('hat_trick')} />
+            <ControlBtn label="FOUR" color="bg-blue-600 text-white" onClick={() => sendOverlayStandalone('four')} />
+            <ControlBtn label="SIX" color="bg-blue-700 text-white" onClick={() => sendOverlayStandalone('six')} />
+            <ControlBtn label="WICKET" color="bg-red-600 text-white" onClick={() => sendOverlayStandalone('wicket')} />
             <ControlBtn label="TOUR BOUNDARIES" color="bg-green-600 text-white" onClick={() => {}} />
-            <button onClick={() => sendOverlay('none')} className="px-3 py-1.5 rounded-full text-xs font-bold bg-red-800 text-white border-2 border-red-500">STOP</button>
+            <button onClick={() => sendOverlayStandalone('none')} className="px-3 py-1.5 rounded-full text-xs font-bold bg-red-800 text-white border-2 border-red-500">STOP</button>
           </div>
         </Section>
 
