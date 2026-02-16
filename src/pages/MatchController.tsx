@@ -8,6 +8,7 @@ import { ArrowLeft, Undo2, Plus, Trophy, Users, ArrowLeftRight } from 'lucide-re
 import { Match, Player, Innings, BallEvent, createPlayer, createInnings, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch, updateMatch, getTournament } from '@/lib/store';
 import { setDisplayState, DisplayMode, AnimationOverlay } from '@/lib/displaySync';
+import { supabase } from '@/integrations/supabase/client';
 
 const MatchController = () => {
   const { id } = useParams<{ id: string }>();
@@ -63,30 +64,63 @@ const MatchController = () => {
     }
   }, [match?.tournamentId]);
 
+  // Broadcast channel for instant scoreboard sync (bypasses DB delay)
+  const broadcastChannel = useRef(id ? supabase.channel(`broadcast-${id}`) : null);
+  useEffect(() => {
+    if (!id) return;
+    const ch = supabase.channel(`broadcast-${id}`);
+    ch.subscribe();
+    broadcastChannel.current = ch;
+    return () => { supabase.removeChannel(ch); };
+  }, [id]);
+
+  const broadcastUpdate = useCallback((matchData?: Match, displayState?: any) => {
+    broadcastChannel.current?.send({
+      type: 'broadcast',
+      event: 'match_update',
+      payload: {
+        ...(matchData ? { match_data: matchData } : {}),
+        ...(displayState ? { display_state: displayState } : {}),
+      },
+    });
+  }, []);
+
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
-    // Release lock IMMEDIATELY after local state update - DB save is fire-and-forget
     scoringLock.current = false;
+    // Broadcast instantly via WebSocket (no DB delay)
+    broadcastUpdate(deep);
+    // Persist to DB (fire-and-forget)
     updateMatch(deep).catch(console.error);
-  }, []);
+  }, [broadcastUpdate]);
 
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
     setActiveDisplay(mode);
+    const ds = { mode, overlay: 'none' as AnimationOverlay, timestamp: Date.now() };
+    broadcastUpdate(undefined, ds);
     setDisplayState(id, { mode });
   };
 
   const sendOverlay = (overlay: AnimationOverlay) => {
     if (!id) return;
+    const ds = { overlay, timestamp: Date.now() };
+    broadcastUpdate(undefined, ds);
     setDisplayState(id, { overlay });
     if (overlay !== 'none') {
-      setTimeout(() => setDisplayState(id, { overlay: 'none' }), 3000);
+      setTimeout(() => {
+        const resetDs = { overlay: 'none' as AnimationOverlay, timestamp: Date.now() };
+        broadcastUpdate(undefined, resetDs);
+        setDisplayState(id, { overlay: 'none' });
+      }, 3000);
     }
   };
 
   const sendCustomText = () => {
     if (!id || !customInput.trim()) return;
+    const ds = { customText: customInput, timestamp: Date.now() };
+    broadcastUpdate(undefined, ds);
     setDisplayState(id, { customText: customInput });
   };
 
