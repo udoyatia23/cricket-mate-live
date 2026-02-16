@@ -28,9 +28,9 @@ const Scoreboard = () => {
     loadMatch();
     getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
 
-    // SINGLE realtime channel for both match_data AND display_state
+    // SINGLE realtime channel for instant updates
     const channel = supabase
-      .channel(`scoreboard-${id}`)
+      .channel(`sb-live-${id}-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
@@ -46,19 +46,20 @@ const Scoreboard = () => {
         }
       )
       .subscribe((status) => {
+        if (!mounted) return;
         if (status === 'SUBSCRIBED') {
-          // Realtime active - only keep a very slow safety poll
+          // Realtime connected - minimal safety poll only
           if (fallbackTimer) clearInterval(fallbackTimer);
-          fallbackTimer = setInterval(loadMatch, 30000);
+          fallbackTimer = setInterval(loadMatch, 60000);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Realtime failed - poll faster as fallback
+          // Realtime failed - fast polling fallback
           if (fallbackTimer) clearInterval(fallbackTimer);
-          fallbackTimer = setInterval(loadMatch, 3000);
+          fallbackTimer = setInterval(loadMatch, 2000);
         }
       });
 
-    // Start with moderate polling until realtime connects
-    fallbackTimer = setInterval(loadMatch, 5000);
+    // Quick poll until realtime connects
+    fallbackTimer = setInterval(loadMatch, 3000);
 
     return () => {
       mounted = false;
