@@ -18,15 +18,17 @@ const Scoreboard = () => {
     const loadMatch = async () => {
       try {
         const m = await getMatch(id);
-        if (mounted && m) setMatch(m); // Only update if valid data - never reset to null
+        if (mounted && m) setMatch(m);
       } catch (e) { console.error('Failed to load match:', e); }
     };
+    // Initial load only
     loadMatch();
-    const interval = setInterval(loadMatch, 500); // faster polling for near-instant sync
+    // Fallback polling every 5s (realtime is primary)
+    const interval = setInterval(loadMatch, 5000);
     getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
     const cleanup = useDisplaySync(id, (ds) => { if (mounted) setDisplay(ds); });
 
-    // Realtime match_data sync for instant score updates
+    // Realtime match_data sync for instant score updates (PRIMARY mechanism)
     const matchChannel = supabase
       .channel(`match-data-${id}`)
       .on(
@@ -39,9 +41,25 @@ const Scoreboard = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+        // If realtime connected, reduce polling frequency
+        if (status === 'SUBSCRIBED') {
+          clearInterval(interval);
+          // Keep very slow fallback polling just in case
+          const slowInterval = setInterval(loadMatch, 15000);
+          // Store for cleanup
+          (matchChannel as any)._slowInterval = slowInterval;
+        }
+      });
 
-    return () => { mounted = false; clearInterval(interval); cleanup(); supabase.removeChannel(matchChannel); };
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      if ((matchChannel as any)?._slowInterval) clearInterval((matchChannel as any)._slowInterval);
+      cleanup();
+      supabase.removeChannel(matchChannel);
+    };
   }, [id]);
 
   useEffect(() => {
