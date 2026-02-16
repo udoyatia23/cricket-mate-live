@@ -287,19 +287,48 @@ const MatchController = () => {
     if (!currentInnings || !bowler) { scoringLock.current = false; return; }
     const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
+    const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
+    const isIllegal = type === 'wide' || type === 'noBall';
+    const penaltyRun = isIllegal ? 1 : 0; // Wide/NoBall always cost 1 penalty run
+    const totalRuns = runs + penaltyRun;
     const event: BallEvent = {
-      id: crypto.randomUUID(), type, runs, batsmanId: striker?.id || '', bowlerId: bowler.id, isWicket: false, isLegal: type === 'bye' || type === 'legBye', timestamp: Date.now(),
+      id: crypto.randomUUID(), type, runs: totalRuns, batsmanId: striker?.id || '', bowlerId: bowler.id, isWicket: false, isLegal: !isIllegal, timestamp: Date.now(),
     };
     inn.events.push(event);
-    inn.runs += runs;
-    inn.extras[type === 'wide' ? 'wides' : type === 'noBall' ? 'noBalls' : type === 'bye' ? 'byes' : 'legByes'] += runs;
-    if (type === 'bye' || type === 'legBye') {
-      inn.balls += 1;
-      if (inn.balls % match.ballsPerOver === 0) { const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; inn.currentBowlerId = undefined; }
-    }
+    inn.runs += totalRuns;
+    const extrasKey = type === 'wide' ? 'wides' : type === 'noBall' ? 'noBalls' : type === 'bye' ? 'byes' : 'legByes';
+    inn.extras[extrasKey] += totalRuns;
+
     const bowlerRef = blt.players.find(p => p.id === bowler.id)!;
-    if (type === 'wide' || type === 'noBall') bowlerRef.bowlingRuns += runs;
+
+    if (isIllegal) {
+      // Wide/NoBall: NOT a legal ball, bowler charged runs
+      bowlerRef.bowlingRuns += totalRuns;
+    } else {
+      // Bye/LegBye: IS a legal ball
+      inn.balls += 1;
+      bowlerRef.bowlingBalls += 1;
+      // Batsman faces ball but no runs credited to batsman
+      if (striker) {
+        const batsmanRef = bt.players.find(p => p.id === striker.id);
+        if (batsmanRef) batsmanRef.ballsFaced += 1;
+      }
+      // Swap on odd runs
+      if (runs % 2 === 1) { const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; }
+      // Over end
+      if (inn.balls % match.ballsPerOver === 0) { const t = inn.currentStrikerId; inn.currentStrikerId = inn.currentNonStrikerId; inn.currentNonStrikerId = t; inn.currentBowlerId = undefined; }
+      // Innings completion
+      if (inn.balls >= match.overs * match.ballsPerOver) inn.isComplete = true;
+    }
+
+    // 2nd innings target check
+    if (updated.currentInningsIndex === 1 && target && inn.runs >= target) {
+      inn.isComplete = true; updated.status = 'finished';
+      updated.winner = (inn.battingTeamIndex === 0 ? updated.team1 : updated.team2).name;
+      updated.winMargin = `${bt.players.length - 1 - inn.wickets} wickets`;
+    }
+
     save(updated);
   };
 
