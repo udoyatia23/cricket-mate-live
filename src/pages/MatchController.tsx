@@ -74,6 +74,8 @@ const MatchController = () => {
     return () => { supabase.removeChannel(ch); };
   }, [id]);
 
+  const pendingOverlay = useRef<AnimationOverlay | null>(null);
+
   const broadcastUpdate = useCallback((matchData?: Match, displayState?: any) => {
     broadcastChannel.current?.send({
       type: 'broadcast',
@@ -89,11 +91,31 @@ const MatchController = () => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
     scoringLock.current = false;
-    // Broadcast instantly via WebSocket (no DB delay)
-    broadcastUpdate(deep);
+    // Send match_data + any pending overlay in ONE broadcast (ensures instant sync)
+    const overlay = pendingOverlay.current;
+    pendingOverlay.current = null;
+    const payload: any = { match_data: deep };
+    if (overlay) {
+      payload.display_state = { overlay, timestamp: Date.now() };
+    }
+    broadcastChannel.current?.send({
+      type: 'broadcast',
+      event: 'match_update',
+      payload,
+    });
     // Persist to DB (fire-and-forget)
     updateMatch(deep).catch(console.error);
-  }, [broadcastUpdate]);
+    // Also persist overlay to DB if any
+    if (overlay && id) {
+      setDisplayState(id, { overlay });
+      if (overlay !== 'none') {
+        setTimeout(() => {
+          broadcastUpdate(undefined, { overlay: 'none', timestamp: Date.now() });
+          setDisplayState(id, { overlay: 'none' });
+        }, 3000);
+      }
+    }
+  }, [broadcastUpdate, id]);
 
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
@@ -104,14 +126,15 @@ const MatchController = () => {
   };
 
   const sendOverlay = (overlay: AnimationOverlay) => {
+    // Store overlay to be sent with next save() call in a single broadcast
+    pendingOverlay.current = overlay;
+    // Also send standalone for display-only changes (no match_data)
     if (!id) return;
-    const ds = { overlay, timestamp: Date.now() };
-    broadcastUpdate(undefined, ds);
+    broadcastUpdate(undefined, { overlay, timestamp: Date.now() });
     setDisplayState(id, { overlay });
     if (overlay !== 'none') {
       setTimeout(() => {
-        const resetDs = { overlay: 'none' as AnimationOverlay, timestamp: Date.now() };
-        broadcastUpdate(undefined, resetDs);
+        broadcastUpdate(undefined, { overlay: 'none' as AnimationOverlay, timestamp: Date.now() });
         setDisplayState(id, { overlay: 'none' });
       }, 3000);
     }
