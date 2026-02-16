@@ -13,12 +13,18 @@ const Scoreboard = () => {
 
   useEffect(() => {
     if (!id) return;
-    const loadMatch = () => { getMatch(id).then(m => setMatch(m || null)); };
+    let mounted = true;
+    const loadMatch = async () => {
+      try {
+        const m = await getMatch(id);
+        if (mounted) setMatch(m || null);
+      } catch (e) { console.error('Failed to load match:', e); }
+    };
     loadMatch();
-    const interval = setInterval(loadMatch, 1500);
-    getDisplayState(id).then(ds => setDisplay(ds));
-    const cleanup = useDisplaySync(id, setDisplay);
-    return () => { clearInterval(interval); cleanup(); };
+    const interval = setInterval(loadMatch, 800); // faster polling
+    getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
+    const cleanup = useDisplaySync(id, (ds) => { if (mounted) setDisplay(ds); });
+    return () => { mounted = false; clearInterval(interval); cleanup(); };
   }, [id]);
 
   useEffect(() => {

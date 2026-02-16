@@ -63,8 +63,9 @@ const MatchController = () => {
   }, [match?.tournamentId]);
 
   const save = useCallback((m: Match) => {
-    setMatch({ ...m });
-    updateMatch(m).catch(console.error);
+    const deep = JSON.parse(JSON.stringify(m)) as Match;
+    setMatch(deep);
+    updateMatch(deep).catch(console.error);
   }, []);
 
   const sendDisplay = (mode: DisplayMode) => {
@@ -118,7 +119,7 @@ const MatchController = () => {
       : (match.innings[0].battingTeamIndex === 0 ? 1 : 0);
     const bowlingIdx = battingIdx === 0 ? 1 : 0;
     const innings = createInnings(battingIdx);
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const bt = battingIdx === 0 ? updated.team1 : updated.team2;
     let sp = bt.players.find(p => p.name.toLowerCase() === strikerName.trim().toLowerCase());
     if (!sp) { sp = createPlayer(strikerName.trim()); bt.players.push(sp); }
@@ -141,7 +142,7 @@ const MatchController = () => {
   const addPlayer = (teamIdx: 0 | 1, name: string, setName: (v: string) => void) => {
     if (!name.trim()) return;
     const names = name.split(',').map(n => n.trim()).filter(Boolean);
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const team = teamIdx === 0 ? updated.team1 : updated.team2;
     names.forEach(n => team.players.push(createPlayer(n)));
     save(updated);
@@ -150,7 +151,7 @@ const MatchController = () => {
 
   const selectBatsman = (playerId: string, role: 'striker' | 'nonStriker') => {
     if (!currentInnings) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     if (role === 'striker') inn.currentStrikerId = playerId;
     else inn.currentNonStrikerId = playerId;
@@ -159,7 +160,7 @@ const MatchController = () => {
 
   const selectBowler = (playerId: string) => {
     if (!currentInnings) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     updated.innings[updated.currentInningsIndex].currentBowlerId = playerId;
     save(updated);
   };
@@ -167,7 +168,7 @@ const MatchController = () => {
   // SWAP BATTER - swap striker and non-striker
   const swapBatter = () => {
     if (!currentInnings) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const t = inn.currentStrikerId;
     inn.currentStrikerId = inn.currentNonStrikerId;
@@ -178,7 +179,7 @@ const MatchController = () => {
   // RETIRE BATTER - retire current striker, need new batsman
   const retireBatter = () => {
     if (!currentInnings || !striker) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     // Mark striker as out (retired)
     const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
@@ -192,7 +193,7 @@ const MatchController = () => {
   // CHANGE BOWLER
   const changeBowler = () => {
     if (!currentInnings || !newBowlerName.trim()) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
     let bp = blt.players.find(p => p.name.toLowerCase() === newBowlerName.trim().toLowerCase());
@@ -234,7 +235,7 @@ const MatchController = () => {
 
   const addRuns = (runs: number) => {
     if (!currentInnings || !striker || !bowler) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
@@ -269,7 +270,7 @@ const MatchController = () => {
 
   const addExtraWithRuns = (type: 'wide' | 'noBall' | 'bye' | 'legBye', runs: number) => {
     if (!currentInnings || !bowler) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
     const event: BallEvent = {
@@ -294,7 +295,7 @@ const MatchController = () => {
   const addWicketWithRuns = (dismissalType: string, runs: number) => {
     if (!currentInnings || !striker || !bowler) return;
     sendOverlay('wicket');
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
     const blt = inn.bowlingTeamIndex === 0 ? updated.team1 : updated.team2;
@@ -380,7 +381,7 @@ const MatchController = () => {
 
   const undo = () => {
     if (!currentInnings || currentInnings.events.length === 0) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const lastEvent = inn.events.pop();
     if (!lastEvent) return;
@@ -412,13 +413,13 @@ const MatchController = () => {
 
   const endInnings = () => {
     if (!currentInnings) return;
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     updated.innings[updated.currentInningsIndex].isComplete = true;
     save(updated);
   };
 
   const saveTeamColors = () => {
-    const updated = { ...match };
+    const updated = JSON.parse(JSON.stringify(match)) as Match;
     updated.team1.color = team1Color;
     updated.team2.color = team2Color;
     save(updated);
@@ -678,7 +679,7 @@ const MatchController = () => {
                     <Input value={newBatsmanName} onChange={e => setNewBatsmanName(e.target.value)} placeholder="Or type new batsman name" className="bg-white text-black max-w-xs" />
                     <Button size="sm" className="bg-green-600 text-white" onClick={() => {
                       if (!newBatsmanName.trim()) return;
-                      const updated = { ...match };
+                      const updated = JSON.parse(JSON.stringify(match)) as Match;
                       const bt = currentInnings.battingTeamIndex === 0 ? updated.team1 : updated.team2;
                       let p = bt.players.find(pl => pl.name.toLowerCase() === newBatsmanName.trim().toLowerCase());
                       if (!p) { p = createPlayer(newBatsmanName.trim()); bt.players.push(p); }
@@ -988,7 +989,7 @@ const MatchController = () => {
               <div className="flex gap-3 justify-center pt-2">
                 <Button onClick={() => {
                   if (!newBatterName.trim() || !currentInnings) return;
-                  const updated = { ...match };
+                  const updated = JSON.parse(JSON.stringify(match)) as Match;
                   const inn = updated.innings[updated.currentInningsIndex];
                   const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
                   let p = bt.players.find(pl => pl.name.toLowerCase() === newBatterName.trim().toLowerCase());

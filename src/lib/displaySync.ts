@@ -21,9 +21,13 @@ const DEFAULT_STATE: DisplayState = { mode: 'default', overlay: 'none', timestam
 export async function setDisplayState(matchId: string, state: Partial<DisplayState>) {
   const current = await getDisplayState(matchId);
   const updated = { ...current, ...state, timestamp: Date.now() };
-  await (supabase.from('matches') as any).update({
-    display_state: updated,
-  }).eq('id', matchId);
+  try {
+    await (supabase.from('matches') as any).update({
+      display_state: updated,
+    }).eq('id', matchId);
+  } catch (e) {
+    console.error('Failed to set display state:', e);
+  }
 }
 
 export async function getDisplayState(matchId: string): Promise<DisplayState> {
