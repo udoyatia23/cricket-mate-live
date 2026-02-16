@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Match, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
-import { getDisplayState, useDisplaySync, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
+import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
 
 const Scoreboard = () => {
@@ -15,50 +15,55 @@ const Scoreboard = () => {
   useEffect(() => {
     if (!id) return;
     let mounted = true;
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+
     const loadMatch = async () => {
       try {
         const m = await getMatch(id);
         if (mounted && m) setMatch(m);
       } catch (e) { console.error('Failed to load match:', e); }
     };
-    // Initial load only
-    loadMatch();
-    // Fallback polling every 5s (realtime is primary)
-    const interval = setInterval(loadMatch, 5000);
-    getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
-    const cleanup = useDisplaySync(id, (ds) => { if (mounted) setDisplay(ds); });
 
-    // Realtime match_data sync for instant score updates (PRIMARY mechanism)
-    const matchChannel = supabase
-      .channel(`match-data-${id}`)
+    // Initial load
+    loadMatch();
+    getDisplayState(id).then(ds => { if (mounted) setDisplay(ds); }).catch(console.error);
+
+    // SINGLE realtime channel for both match_data AND display_state
+    const channel = supabase
+      .channel(`scoreboard-${id}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` },
         (payload) => {
-          const md = (payload.new as any)?.match_data;
-          if (md && mounted) {
-            setMatch({ ...md, id } as unknown as Match);
+          if (!mounted) return;
+          const row = payload.new as any;
+          if (row?.match_data) {
+            setMatch({ ...row.match_data, id } as unknown as Match);
+          }
+          if (row?.display_state) {
+            setDisplay(row.display_state as DisplayState);
           }
         }
       )
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        // If realtime connected, reduce polling frequency
         if (status === 'SUBSCRIBED') {
-          clearInterval(interval);
-          // Keep very slow fallback polling just in case
-          const slowInterval = setInterval(loadMatch, 15000);
-          // Store for cleanup
-          (matchChannel as any)._slowInterval = slowInterval;
+          // Realtime active - only keep a very slow safety poll
+          if (fallbackTimer) clearInterval(fallbackTimer);
+          fallbackTimer = setInterval(loadMatch, 30000);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Realtime failed - poll faster as fallback
+          if (fallbackTimer) clearInterval(fallbackTimer);
+          fallbackTimer = setInterval(loadMatch, 3000);
         }
       });
 
+    // Start with moderate polling until realtime connects
+    fallbackTimer = setInterval(loadMatch, 5000);
+
     return () => {
       mounted = false;
-      clearInterval(interval);
-      if ((matchChannel as any)?._slowInterval) clearInterval((matchChannel as any)._slowInterval);
-      cleanup();
-      supabase.removeChannel(matchChannel);
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      supabase.removeChannel(channel);
     };
   }, [id]);
 
