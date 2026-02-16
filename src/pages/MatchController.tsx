@@ -211,16 +211,18 @@ const MatchController = () => {
   const handleScore = (runs: number) => {
     if (!currentInnings || !bowler) return;
     if (scoringLock.current) return;
-    scoringLock.current = true;
 
     if (wicketChecked) {
-      if (!wicketType) return; // must select wicket type first
+      if (!wicketType) return; // must select wicket type first - don't lock yet
+      scoringLock.current = true;
       addWicketWithRuns(wicketType, runs);
       setWicketChecked(false);
       setWicketType('');
       resetCheckboxes();
       return;
     }
+
+    scoringLock.current = true;
 
     if (wideChecked) { addExtraWithRuns('wide', runs); resetCheckboxes(); return; }
     if (noBallChecked) { addExtraWithRuns('noBall', runs); resetCheckboxes(); return; }
