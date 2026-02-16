@@ -8,7 +8,14 @@ export async function getTournaments(): Promise<Tournament[]> {
     .from('tournaments')
     .select('*')
     .order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error || !data) {
+    // Retry once on timeout
+    if (error?.message?.includes('timeout') || error?.code === 'PGRST301') {
+      const retry = await supabase.from('tournaments').select('*').order('created_at', { ascending: false });
+      if (retry.data) return retry.data.map(t => ({ id: t.id, name: t.name, address: t.address || '', matches: [], createdAt: t.created_at }));
+    }
+    return [];
+  }
   return data.map(t => ({
     id: t.id,
     name: t.name,

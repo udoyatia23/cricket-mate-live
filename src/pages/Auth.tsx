@@ -23,13 +23,23 @@ const Auth = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (error) {
-      toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
-    } else {
-      navigate('/dashboard');
+    // Retry up to 2 times on timeout
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (!error) {
+        setLoading(false);
+        navigate('/dashboard');
+        return;
+      }
+      const msg = error?.message || JSON.stringify(error) || 'Unknown error';
+      if (msg.includes('timeout') || msg.includes('504') || msg.includes('timed out')) {
+        if (attempt < 2) continue; // retry
+      }
+      setLoading(false);
+      toast({ title: 'Login Failed', description: msg.includes('timeout') || msg.includes('504') ? 'Server is waking up, please try again in a few seconds.' : msg, variant: 'destructive' });
+      return;
     }
+    setLoading(false);
   };
 
   const handleSignup = async () => {
@@ -42,21 +52,30 @@ const Auth = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { name: name.trim(), phone_number: phone.trim() },
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: 'Signup Failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Account Created!', description: 'Please check your email to verify your account before logging in.' });
-      setIsLogin(true);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { name: name.trim(), phone_number: phone.trim() },
+        },
+      });
+      if (!error) {
+        setLoading(false);
+        toast({ title: 'Account Created!', description: 'Please check your email to verify your account before logging in.' });
+        setIsLogin(true);
+        return;
+      }
+      const msg = error?.message || JSON.stringify(error) || 'Unknown error';
+      if (msg.includes('timeout') || msg.includes('504') || msg.includes('timed out')) {
+        if (attempt < 2) continue;
+      }
+      setLoading(false);
+      toast({ title: 'Signup Failed', description: msg.includes('timeout') || msg.includes('504') ? 'Server is waking up, please try again in a few seconds.' : msg, variant: 'destructive' });
+      return;
     }
+    setLoading(false);
   };
 
   return (
