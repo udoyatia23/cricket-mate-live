@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
+import ScoreboardTicker from '@/components/ScoreboardTicker';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -279,11 +280,7 @@ const Scoreboard2Inner = () => {
                       <>NEED <span className="text-amber-300">{need}</span> RUNS FROM <span className="text-amber-300">{remainBalls}</span> BALLS</>
                     ) : (s?.status || match.status) === 'finished' && (s?.winner || match.winner) ? (
                       <span className="text-amber-300">{s?.winner || match.winner} WON</span>
-                    ) : (
-                      <span className="text-white/60">
-                        {match.tossWonBy === 0 ? match.team1.name.toUpperCase() : match.team2.name.toUpperCase()} WON THE TOSS
-                      </span>
-                    )}
+                    ) : null}
                   </span>
                 </div>
               </>
@@ -584,6 +581,7 @@ const Scoreboard2Inner = () => {
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
       <div className={isBottomAligned ? 'w-full' : 'w-full px-2 md:px-4'}>
         {renderContent()}
+        {isBottomAligned && <ScoreboardTicker snapshot={snapshot} match={match} variant="light" />}
       </div>
     </div>
   );

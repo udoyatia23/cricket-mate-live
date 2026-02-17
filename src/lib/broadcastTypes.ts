@@ -42,5 +42,6 @@ export interface ScoreboardSnapshot {
   displayMode?: string;
   displayCustomText?: string;
   displayMomPlayer?: string;
+  venue?: string;
   ts: number;
 }
