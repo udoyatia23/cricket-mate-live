@@ -138,7 +138,8 @@ const Scoreboard = () => {
       .subscribe();
 
     // Safety poll every 30s
-    fallbackTimer = setInterval(loadMatch, 30000);
+    // Poll every 5s as backup (realtime via score_live should be instant)
+    fallbackTimer = setInterval(loadMatch, 5000);
 
     return () => {
       mounted = false;

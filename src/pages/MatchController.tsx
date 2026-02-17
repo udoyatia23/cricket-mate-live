@@ -76,6 +76,9 @@ const MatchController = () => {
   }, [id]);
 
   const pendingOverlay = useRef<AnimationOverlay | null>(null);
+  // Debounce timer for heavy matches table update
+  const matchSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestMatchForSave = useRef<Match | null>(null);
 
   const broadcastPayload = useCallback((payload: any) => {
     broadcastChannel.current?.send({
@@ -93,7 +96,6 @@ const MatchController = () => {
     const striker = inn && batTeam ? batTeam.players.find(p => p.id === inn.currentStrikerId) : null;
     const nonStriker = inn && batTeam ? batTeam.players.find(p => p.id === inn.currentNonStrikerId) : null;
     const bowler = inn && bowlTeam ? bowlTeam.players.find(p => p.id === inn.currentBowlerId) : null;
-    // Get current over balls
     const bpo = m.ballsPerOver;
     let overBalls: BallEvent[] = [];
     if (inn) {
@@ -130,6 +132,30 @@ const MatchController = () => {
     };
   }, []);
 
+  // Debounced save to matches table (heavy, only every 3s)
+  const debouncedMatchSave = useCallback((m: Match) => {
+    latestMatchForSave.current = m;
+    if (matchSaveTimer.current) clearTimeout(matchSaveTimer.current);
+    matchSaveTimer.current = setTimeout(() => {
+      const toSave = latestMatchForSave.current;
+      if (toSave) {
+        updateMatch(toSave).catch(e => console.error('matches update failed:', e));
+        latestMatchForSave.current = null;
+      }
+    }, 3000);
+  }, []);
+
+  // Cleanup debounce timer and save any pending data on unmount
+  useEffect(() => {
+    return () => {
+      if (matchSaveTimer.current) {
+        clearTimeout(matchSaveTimer.current);
+        const toSave = latestMatchForSave.current;
+        if (toSave) updateMatch(toSave).catch(console.error);
+      }
+    };
+  }, []);
+
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
@@ -137,8 +163,11 @@ const MatchController = () => {
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
     const snapshot = createSnapshot(deep, overlay || undefined);
-    // PRIMARY: Write tiny snapshot to score_live table (~500 bytes)
-    // This triggers postgres_changes on a tiny table = instant delivery
+
+    // 1. INSTANT: Broadcast via WebSocket (fastest, no DB involved)
+    broadcastPayload({ snapshot });
+
+    // 2. INSTANT: Write tiny snapshot to score_live table (~500 bytes)
     if (id) {
       (supabase.from('score_live') as any).upsert(
         { match_id: id, snapshot, updated_at: new Date().toISOString() },
@@ -147,10 +176,10 @@ const MatchController = () => {
         if (error) console.error('score_live upsert failed:', error);
       });
     }
-    // ALSO send via broadcast as bonus (may or may not arrive)
-    broadcastPayload({ snapshot });
-    // Persist full data to DB in background (fire-and-forget)
-    updateMatch(deep).catch(console.error);
+
+    // 3. DEBOUNCED: Heavy matches table update (every 3s max)
+    debouncedMatchSave(deep);
+
     if (overlay && id) {
       setDisplayState(id, { overlay });
       if (overlay !== 'none') {
@@ -165,7 +194,7 @@ const MatchController = () => {
         }, 3000);
       }
     }
-  }, [broadcastPayload, id, createSnapshot]);
+  }, [broadcastPayload, id, createSnapshot, debouncedMatchSave]);
 
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
