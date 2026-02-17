@@ -44,6 +44,9 @@ const MatchController = () => {
   const [newBatsmanName, setNewBatsmanName] = useState('');
   const [needsBowlerAfterWicket, setNeedsBowlerAfterWicket] = useState(false);
   const scoringLock = useRef(false);
+  // Boundary tracking for auto-popup
+  const lastFoursCount = useRef(0);
+  const lastSixesCount = useRef(0);
 
   useEffect(() => {
     if (id) {
@@ -107,7 +110,20 @@ const MatchController = () => {
   }, []);
 
   // Create ultra-lightweight snapshot (~500 bytes) for instant broadcast
-  const createSnapshot = useCallback((m: Match, overlay?: AnimationOverlay): ScoreboardSnapshot => {
+  // Count total fours and sixes across all innings
+  const countBoundaries = useCallback((m: Match) => {
+    let fours = 0, sixes = 0;
+    for (const inn of m.innings) {
+      const batTeam = inn.battingTeamIndex === 0 ? m.team1 : m.team2;
+      for (const p of batTeam.players) {
+        fours += p.fours;
+        sixes += p.sixes;
+      }
+    }
+    return { fours, sixes };
+  }, []);
+
+  const createSnapshot = useCallback((m: Match, overlay?: AnimationOverlay, boundaryAlert?: 'fours' | 'sixes'): ScoreboardSnapshot => {
     const inn = m.currentInningsIndex >= 0 ? m.innings[m.currentInningsIndex] : null;
     const batTeam = inn ? (inn.battingTeamIndex === 0 ? m.team1 : m.team2) : null;
     const bowlTeam = inn ? (inn.bowlingTeamIndex === 0 ? m.team1 : m.team2) : null;
@@ -126,6 +142,7 @@ const MatchController = () => {
         if (legalCount >= ballsInOver) break;
       }
     }
+    const { fours, sixes } = countBoundaries(m);
     return {
       inn: inn ? { runs: inn.runs, wickets: inn.wickets, balls: inn.balls, batIdx: inn.battingTeamIndex } : { runs: 0, wickets: 0, balls: 0, batIdx: 0 },
       s: striker ? { name: striker.name, runs: striker.runs, bf: striker.ballsFaced } : undefined,
@@ -147,9 +164,12 @@ const MatchController = () => {
       inn1Runs: m.innings[0] ? m.innings[0].runs : undefined,
       overlay: overlay || undefined,
       venue: tournamentVenue || undefined,
+      totalFours: fours,
+      totalSixes: sixes,
+      boundaryAlert: boundaryAlert || undefined,
       ts: Date.now(),
     };
-  }, [tournamentVenue]);
+  }, [tournamentVenue, countBoundaries]);
 
   // Debounced save to matches table (heavy, only every 3s)
   const debouncedMatchSave = useCallback((m: Match) => {
@@ -181,7 +201,20 @@ const MatchController = () => {
     scoringLock.current = false;
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
-    const snapshot = createSnapshot(deep, overlay || undefined);
+
+    // Check for boundary milestone (every 2 fours or 2 sixes)
+    const { fours, sixes } = countBoundaries(deep);
+    let boundaryAlert: 'fours' | 'sixes' | undefined;
+    if (fours > 0 && fours !== lastFoursCount.current && fours % 2 === 0) {
+      boundaryAlert = 'fours';
+    }
+    if (sixes > 0 && sixes !== lastSixesCount.current && sixes % 2 === 0) {
+      boundaryAlert = 'sixes'; // sixes take priority if both hit milestone
+    }
+    lastFoursCount.current = fours;
+    lastSixesCount.current = sixes;
+
+    const snapshot = createSnapshot(deep, overlay || undefined, boundaryAlert);
     snapshot.displayMode = activeDisplay;
 
     // 1. INSTANT: Broadcast via WebSocket (fastest, no DB involved)
