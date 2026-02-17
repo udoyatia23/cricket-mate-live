@@ -44,9 +44,9 @@ const MatchController = () => {
   const [newBatsmanName, setNewBatsmanName] = useState('');
   const [needsBowlerAfterWicket, setNeedsBowlerAfterWicket] = useState(false);
   const scoringLock = useRef(false);
-  // Boundary tracking for auto-popup
-  const lastFoursCount = useRef(0);
-  const lastSixesCount = useRef(0);
+  // Boundary tracking for auto-popup (triggers on every new 4 or 6)
+  const lastFoursCount = useRef(-1);
+  const lastSixesCount = useRef(-1);
 
   useEffect(() => {
     if (id) {
@@ -202,14 +202,18 @@ const MatchController = () => {
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
 
-    // Check for boundary milestone (every 2 fours or 2 sixes)
+    // Check for new boundary hit (trigger alert on every new 4 or 6)
     const { fours, sixes } = countBoundaries(deep);
     let boundaryAlert: 'fours' | 'sixes' | undefined;
-    if (fours > 0 && fours !== lastFoursCount.current && fours % 2 === 0) {
+    // Initialize refs on first save (don't trigger alert on load)
+    if (lastFoursCount.current === -1) lastFoursCount.current = fours;
+    if (lastSixesCount.current === -1) lastSixesCount.current = sixes;
+    
+    if (fours > lastFoursCount.current) {
       boundaryAlert = 'fours';
     }
-    if (sixes > 0 && sixes !== lastSixesCount.current && sixes % 2 === 0) {
-      boundaryAlert = 'sixes'; // sixes take priority if both hit milestone
+    if (sixes > lastSixesCount.current) {
+      boundaryAlert = 'sixes'; // sixes take priority
     }
     lastFoursCount.current = fours;
     lastSixesCount.current = sixes;
