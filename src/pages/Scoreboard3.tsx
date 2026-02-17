@@ -308,25 +308,23 @@ const Scoreboard3Inner = () => {
               </>
             ) : (s?.status || match.status) === 'finished' && (s?.winner || match.winner) ? (
               <span className="font-display font-black text-amber-400 text-sm md:text-base uppercase tracking-wider">{s?.winner || match.winner} WON</span>
-            ) : (
-              <span className="text-white/30 text-[10px] font-display tracking-widest uppercase">
-                {s?.matchType || match.matchType || 'MATCH'}
-              </span>
-            )}
+            ) : null}
           </div>
 
           {/* Separator */}
           <div className="relative z-10 w-[3px] flex-shrink-0" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.1), rgba(200,180,255,0.3), rgba(255,255,255,0.1))' }} />
 
-          {/* FAR RIGHT: Bowler over balls (gold/amber accent) */}
-          <div className="relative z-10 flex flex-col justify-center px-2 md:px-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #b8860b, #daa520)', minWidth: '80px', clipPath: 'polygon(12px 0, 100% 0, 100% 100%, 0 100%)' }}>
+          {/* FAR RIGHT: Bowler info + over balls (gold/amber accent) */}
+          <div className="relative z-10 flex flex-col justify-center px-3 md:px-4 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #b8860b, #daa520)', minWidth: '140px', clipPath: 'polygon(12px 0, 100% 0, 100% 100%, 0 100%)' }}>
             {bowlerData && (
-              <div className="flex items-center gap-1 pl-2">
-                <span className="font-display font-bold text-[#1a1a2e] text-[11px] md:text-[12px] uppercase tracking-wide truncate">{bowlerData.name}</span>
+              <div className="flex items-center gap-2 pl-3">
+                <span className="font-display font-black text-[#1a1a2e] text-[12px] md:text-[13px] uppercase tracking-wide truncate">{bowlerData.name}</span>
+                <span className="font-display font-black text-[#1a1a2e]/70 text-sm tabular-nums">{getOversString(bowlerData.balls, bpo)}-{bowlerData.r}-{bowlerData.w}</span>
               </div>
             )}
-            <div className="flex gap-0.5 mt-0.5 pl-2">
+            <div className="flex gap-1 mt-1 pl-3">
               {currentOverBalls.slice(-bpo).map((e, i) => <BallCircle key={i} event={e} />)}
+              {Array.from({ length: Math.max(0, bpo - currentOverBalls.length) }).map((_, i) => <EmptyBall key={`e-${i}`} />)}
             </div>
           </div>
 
