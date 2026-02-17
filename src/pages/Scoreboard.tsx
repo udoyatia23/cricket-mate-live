@@ -36,13 +36,26 @@ const Scoreboard = () => {
     loadDisplay();
 
     // PRIMARY: Broadcast channel (instant, bypasses DB)
+    // Broadcast sends lightweight snapshot (truncated events) for speed
+    // We merge it with existing state so full events from DB are preserved for FOW/summary
     const broadcastCh = supabase
       .channel(`broadcast-${id}`)
       .on('broadcast', { event: 'match_update' }, (payload) => {
         if (!mounted) return;
         const data = payload.payload;
         if (data?.match_data) {
-          setMatch({ ...data.match_data, id } as unknown as Match);
+          const incoming = { ...data.match_data, id } as unknown as Match;
+          setMatch(prev => {
+            if (!prev) return incoming;
+            // Merge: use incoming stats but preserve full events from DB
+            const merged = JSON.parse(JSON.stringify(incoming)) as Match;
+            merged.innings.forEach((inn, idx) => {
+              if (prev.innings[idx] && prev.innings[idx].events.length > inn.events.length) {
+                merged.innings[idx].events = prev.innings[idx].events;
+              }
+            });
+            return merged;
+          });
         }
         if (data?.display_state) {
           setDisplay(prev => ({ ...prev, ...data.display_state }));
