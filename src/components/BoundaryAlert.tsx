@@ -10,25 +10,46 @@ export default function BoundaryAlert({ snapshot, variant = 'dark' }: BoundaryAl
   const [visible, setVisible] = useState(false);
   const [alertType, setAlertType] = useState<'fours' | 'sixes'>('fours');
   const [count, setCount] = useState(0);
-  const lastAlertTs = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
+  const lastFours = useRef(-1);
+  const lastSixes = useRef(-1);
 
   useEffect(() => {
-    if (!snapshot?.boundaryAlert) return;
-    // Prevent duplicate triggers for same snapshot
-    if (snapshot.ts <= lastAlertTs.current) return;
-    lastAlertTs.current = snapshot.ts;
+    if (!snapshot) return;
+    const fours = snapshot.totalFours || 0;
+    const sixes = snapshot.totalSixes || 0;
 
-    const type = snapshot.boundaryAlert;
-    setAlertType(type);
-    setCount(type === 'fours' ? (snapshot.totalFours || 0) : (snapshot.totalSixes || 0));
-    setVisible(true);
+    // Initialize on first snapshot (don't trigger)
+    if (lastFours.current === -1) { lastFours.current = fours; lastSixes.current = sixes; return; }
 
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setVisible(false), 5000);
+    let triggered = false;
 
+    // Check if sixes increased
+    if (sixes > lastSixes.current) {
+      setAlertType('sixes');
+      setCount(sixes);
+      triggered = true;
+    }
+    // Check if fours increased (sixes take priority if both)
+    else if (fours > lastFours.current) {
+      setAlertType('fours');
+      setCount(fours);
+      triggered = true;
+    }
+
+    lastFours.current = fours;
+    lastSixes.current = sixes;
+
+    if (triggered) {
+      setVisible(true);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      hideTimer.current = setTimeout(() => setVisible(false), 5000);
+    }
+  }, [snapshot?.totalFours, snapshot?.totalSixes]);
+
+  useEffect(() => {
     return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
-  }, [snapshot?.boundaryAlert, snapshot?.ts]);
+  }, []);
 
   if (!visible) return null;
 
@@ -61,7 +82,6 @@ export default function BoundaryAlert({ snapshot, variant = 'dark' }: BoundaryAl
         }
       `}</style>
       <div className="flex items-center gap-3">
-        {/* Icon circle */}
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center font-display font-black text-sm"
           style={{
@@ -73,7 +93,6 @@ export default function BoundaryAlert({ snapshot, variant = 'dark' }: BoundaryAl
         >
           {icon}
         </div>
-        {/* Count */}
         <div className="flex items-baseline gap-1.5">
           <span className="font-display font-black text-white text-xl md:text-2xl tabular-nums" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
             {count}
@@ -82,7 +101,6 @@ export default function BoundaryAlert({ snapshot, variant = 'dark' }: BoundaryAl
             {label}
           </span>
         </div>
-        {/* Decorative dots */}
         <div className="flex gap-1">
           {Array.from({ length: Math.min(count, 6) }).map((_, i) => (
             <div
