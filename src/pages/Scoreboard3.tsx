@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
+import ScoreboardTicker from '@/components/ScoreboardTicker';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -613,6 +614,7 @@ const Scoreboard3Inner = () => {
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
       <div className={isBottomAligned ? 'w-full' : 'w-full px-2 md:px-4'}>
         {renderContent()}
+        {isBottomAligned && <ScoreboardTicker snapshot={snapshot} match={match} variant="premium" />}
       </div>
     </div>
   );

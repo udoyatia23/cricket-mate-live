@@ -73,9 +73,13 @@ const MatchController = () => {
   }, [match?.id]);
 
   const [tournamentName, setTournamentName] = useState('Tournament');
+  const [tournamentVenue, setTournamentVenue] = useState('');
   useEffect(() => {
     if (match?.tournamentId) {
-      getTournament(match.tournamentId).then(t => setTournamentName(t?.name || 'Tournament'));
+      getTournament(match.tournamentId).then(t => {
+        setTournamentName(t?.name || 'Tournament');
+        setTournamentVenue(t?.address || '');
+      });
     }
   }, [match?.tournamentId]);
 
@@ -142,9 +146,10 @@ const MatchController = () => {
       matchNo: m.matchNo,
       inn1Runs: m.innings[0] ? m.innings[0].runs : undefined,
       overlay: overlay || undefined,
+      venue: tournamentVenue || undefined,
       ts: Date.now(),
     };
-  }, []);
+  }, [tournamentVenue]);
 
   // Debounced save to matches table (heavy, only every 3s)
   const debouncedMatchSave = useCallback((m: Match) => {
