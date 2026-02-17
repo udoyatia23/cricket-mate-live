@@ -134,18 +134,33 @@ const MatchController = () => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
     scoringLock.current = false;
-    // Send ultra-lightweight snapshot via broadcast (~500 bytes, instant delivery)
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
     const snapshot = createSnapshot(deep, overlay || undefined);
+    // PRIMARY: Write tiny snapshot to score_live table (~500 bytes)
+    // This triggers postgres_changes on a tiny table = instant delivery
+    if (id) {
+      (supabase.from('score_live') as any).upsert(
+        { match_id: id, snapshot, updated_at: new Date().toISOString() },
+        { onConflict: 'match_id' }
+      ).then(({ error }: any) => {
+        if (error) console.error('score_live upsert failed:', error);
+      });
+    }
+    // ALSO send via broadcast as bonus (may or may not arrive)
     broadcastPayload({ snapshot });
-    // Persist full data to DB (fire-and-forget)
+    // Persist full data to DB in background (fire-and-forget)
     updateMatch(deep).catch(console.error);
     if (overlay && id) {
       setDisplayState(id, { overlay });
       if (overlay !== 'none') {
         setTimeout(() => {
-          broadcastPayload({ snapshot: { ...createSnapshot(deep), overlay: 'none' } });
+          const clearSnap = { ...createSnapshot(deep), overlay: 'none' as const };
+          broadcastPayload({ snapshot: clearSnap });
+          (supabase.from('score_live') as any).upsert(
+            { match_id: id, snapshot: clearSnap, updated_at: new Date().toISOString() },
+            { onConflict: 'match_id' }
+          ).then(() => {});
           setDisplayState(id, { overlay: 'none' });
         }, 3000);
       }
