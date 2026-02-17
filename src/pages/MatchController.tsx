@@ -177,6 +177,7 @@ const MatchController = () => {
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
     const snapshot = createSnapshot(deep, overlay || undefined);
+    snapshot.displayMode = activeDisplay;
 
     // 1. INSTANT: Broadcast via WebSocket (fastest, no DB involved)
     broadcastPayload({ snapshot });
@@ -217,6 +218,17 @@ const MatchController = () => {
     const ds = { mode, overlay: 'none' as AnimationOverlay, timestamp: Date.now() };
     broadcastPayload({ display_state: ds });
     setDisplayState(id, { mode });
+    // INSTANT: Also upsert score_live with display mode for fast sync
+    if (match) {
+      const snapshot = createSnapshot(match);
+      snapshot.displayMode = mode;
+      (supabase.from('score_live') as any).upsert(
+        { match_id: id, snapshot, updated_at: new Date().toISOString() },
+        { onConflict: 'match_id' }
+      ).then(({ error }: any) => {
+        if (error) console.error('score_live display upsert failed:', error);
+      });
+    }
   };
 
   // For scoring: just set pendingOverlay (will be sent with match_data in save())
@@ -229,10 +241,29 @@ const MatchController = () => {
     if (!id) return;
     broadcastPayload({ display_state: { overlay, timestamp: Date.now() } });
     setDisplayState(id, { overlay });
+    // INSTANT: Also upsert score_live with overlay
+    if (match) {
+      const snapshot = createSnapshot(match, overlay);
+      snapshot.displayMode = activeDisplay;
+      (supabase.from('score_live') as any).upsert(
+        { match_id: id, snapshot, updated_at: new Date().toISOString() },
+        { onConflict: 'match_id' }
+      ).then(({ error }: any) => {
+        if (error) console.error('score_live overlay upsert failed:', error);
+      });
+    }
     if (overlay !== 'none') {
       setTimeout(() => {
         broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
         setDisplayState(id, { overlay: 'none' });
+        if (match) {
+          const snapshot = createSnapshot(match);
+          snapshot.displayMode = activeDisplay;
+          (supabase.from('score_live') as any).upsert(
+            { match_id: id, snapshot, updated_at: new Date().toISOString() },
+            { onConflict: 'match_id' }
+          ).then(() => {});
+        }
       }, 3000);
     }
   };
@@ -242,6 +273,18 @@ const MatchController = () => {
     const ds = { customText: customInput, timestamp: Date.now() };
     broadcastPayload({ display_state: ds });
     setDisplayState(id, { customText: customInput });
+    // INSTANT: Also upsert score_live with custom text
+    if (match) {
+      const snapshot = createSnapshot(match);
+      snapshot.displayMode = activeDisplay;
+      snapshot.displayCustomText = customInput;
+      (supabase.from('score_live') as any).upsert(
+        { match_id: id, snapshot, updated_at: new Date().toISOString() },
+        { onConflict: 'match_id' }
+      ).then(({ error }: any) => {
+        if (error) console.error('score_live customText upsert failed:', error);
+      });
+    }
   };
 
   if (!match) {
