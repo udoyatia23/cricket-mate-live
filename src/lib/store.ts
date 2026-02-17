@@ -98,5 +98,7 @@ export async function getMatchesForTournament(tournamentId: string): Promise<Mat
 }
 
 export async function deleteMatch(id: string): Promise<void> {
+  // Delete score_live row first so scoreboard doesn't show stale data
+  await supabase.from('score_live').delete().eq('match_id', id);
   await supabase.from('matches').delete().eq('id', id);
 }
