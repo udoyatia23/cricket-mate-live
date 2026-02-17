@@ -174,6 +174,7 @@ const MatchController = () => {
         { onConflict: 'match_id' }
       ).then(({ error }: any) => {
         if (error) console.error('score_live upsert failed:', error);
+        else console.log('DB_UPDATE_OK', Date.now(), id, 'runs=', snapshot.inn.runs, 'wickets=', snapshot.inn.wickets);
       });
     }
 
