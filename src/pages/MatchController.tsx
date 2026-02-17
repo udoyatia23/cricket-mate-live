@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Undo2, Plus, Trophy, Users, ArrowLeftRight } from 'lucide-react';
 import { Match, Player, Innings, BallEvent, createPlayer, createInnings, getOversString, getRunRate } from '@/types/cricket';
+import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import { getMatch, updateMatch, getTournament } from '@/lib/store';
 import { setDisplayState, DisplayMode, AnimationOverlay } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
@@ -84,43 +85,72 @@ const MatchController = () => {
     });
   }, []);
 
-  // Create a lightweight copy for broadcast (truncate events to keep payload small)
-  const createBroadcastSnapshot = useCallback((m: Match): Match => {
-    const snap = JSON.parse(JSON.stringify(m)) as Match;
-    // Only keep last 12 events per innings (enough for current over display)
-    snap.innings.forEach(inn => {
-      if (inn.events.length > 12) {
-        inn.events = inn.events.slice(-12);
+  // Create ultra-lightweight snapshot (~500 bytes) for instant broadcast
+  const createSnapshot = useCallback((m: Match, overlay?: AnimationOverlay): ScoreboardSnapshot => {
+    const inn = m.currentInningsIndex >= 0 ? m.innings[m.currentInningsIndex] : null;
+    const batTeam = inn ? (inn.battingTeamIndex === 0 ? m.team1 : m.team2) : null;
+    const bowlTeam = inn ? (inn.bowlingTeamIndex === 0 ? m.team1 : m.team2) : null;
+    const striker = inn && batTeam ? batTeam.players.find(p => p.id === inn.currentStrikerId) : null;
+    const nonStriker = inn && batTeam ? batTeam.players.find(p => p.id === inn.currentNonStrikerId) : null;
+    const bowler = inn && bowlTeam ? bowlTeam.players.find(p => p.id === inn.currentBowlerId) : null;
+    // Get current over balls
+    const bpo = m.ballsPerOver;
+    let overBalls: BallEvent[] = [];
+    if (inn) {
+      const ballsInOver = inn.balls % bpo || (inn.balls > 0 ? bpo : 0);
+      const events = inn.events;
+      let legalCount = 0;
+      for (let i = events.length - 1; i >= 0 && overBalls.length < bpo + 6; i--) {
+        overBalls.unshift(events[i]);
+        if (events[i].isLegal) legalCount++;
+        if (legalCount >= ballsInOver) break;
       }
-    });
-    return snap;
+    }
+    return {
+      inn: inn ? { runs: inn.runs, wickets: inn.wickets, balls: inn.balls, batIdx: inn.battingTeamIndex } : { runs: 0, wickets: 0, balls: 0, batIdx: 0 },
+      s: striker ? { name: striker.name, runs: striker.runs, bf: striker.ballsFaced } : undefined,
+      ns: nonStriker ? { name: nonStriker.name, runs: nonStriker.runs, bf: nonStriker.ballsFaced } : undefined,
+      b: bowler ? { name: bowler.name, w: bowler.bowlingWickets, r: bowler.bowlingRuns, balls: bowler.bowlingBalls } : undefined,
+      ov: overBalls,
+      t1: { name: m.team1.name, color: m.team1.color || '#c62828', logo: m.team1.logo },
+      t2: { name: m.team2.name, color: m.team2.color || '#1565c0', logo: m.team2.logo },
+      overs: m.overs,
+      bpo,
+      inIdx: m.currentInningsIndex,
+      status: m.status,
+      winner: m.winner,
+      winMargin: m.winMargin,
+      tossWonBy: m.tossWonBy,
+      optedTo: m.optedTo,
+      matchType: m.matchType,
+      matchNo: m.matchNo,
+      inn1Runs: m.innings[0] ? m.innings[0].runs : undefined,
+      overlay: overlay || undefined,
+      ts: Date.now(),
+    };
   }, []);
 
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
     scoringLock.current = false;
-    // Send LIGHTWEIGHT match_data + any pending overlay in ONE single broadcast
+    // Send ultra-lightweight snapshot via broadcast (~500 bytes, instant delivery)
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
-    const snapshot = createBroadcastSnapshot(deep);
-    const payload: any = { match_data: snapshot };
-    if (overlay) {
-      payload.display_state = { overlay, timestamp: Date.now() };
-    }
-    broadcastPayload(payload);
+    const snapshot = createSnapshot(deep, overlay || undefined);
+    broadcastPayload({ snapshot });
     // Persist full data to DB (fire-and-forget)
     updateMatch(deep).catch(console.error);
     if (overlay && id) {
       setDisplayState(id, { overlay });
       if (overlay !== 'none') {
         setTimeout(() => {
-          broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
+          broadcastPayload({ snapshot: { ...createSnapshot(deep), overlay: 'none' } });
           setDisplayState(id, { overlay: 'none' });
         }, 3000);
       }
     }
-  }, [broadcastPayload, id, createBroadcastSnapshot]);
+  }, [broadcastPayload, id, createSnapshot]);
 
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
