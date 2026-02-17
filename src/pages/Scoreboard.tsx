@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -6,23 +6,84 @@ import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 
-const Scoreboard = () => {
+// ====== ErrorBoundary to prevent blank screen in OBS/PRISM ======
+class ScoreboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[Scoreboard] ErrorBoundary caught:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-screen bg-transparent flex items-center justify-center">
+          <div className="text-white/60 text-sm font-mono text-center p-4">
+            <p>Scoreboard recovering...</p>
+            <button onClick={() => this.setState({ hasError: false })} className="mt-2 px-3 py-1 bg-white/10 rounded text-xs">
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const ScoreboardInner = () => {
   const { id } = useParams<{ id: string }>();
+  // snapshot is the PRIMARY source of truth for the score bar
+  const [snapshot, setSnapshot] = useState<ScoreboardSnapshot | null>(null);
+  // match is loaded once for full data (summaries, FOW, teams, etc.)
   const [match, setMatch] = useState<Match | null>(null);
   const [display, setDisplay] = useState<DisplayState>({ mode: 'default', overlay: 'none', timestamp: 0 });
   const vsAnimDone = useRef(false);
   const [vsAnimIn, setVsAnimIn] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>('connecting');
+  const lastPayloadTs = useRef<number>(0);
+  const retryCount = useRef(0);
 
   useEffect(() => {
     if (!id) return;
     let mounted = true;
     let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+    let realtimeConnected = false;
 
+    console.log(`[Scoreboard] Initializing for match ${id}`);
+
+    // Load full match data (for summaries, FOW, teams display etc.)
     const loadMatch = async () => {
       try {
+        console.log(`[Scoreboard] Fetching match data... ts=${Date.now()}`);
         const m = await getMatch(id);
-        if (mounted && m) setMatch(m);
-      } catch (e) { console.error('Failed to load match:', e); }
+        if (mounted && m) {
+          setMatch(m);
+          console.log(`[Scoreboard] Match loaded: ${m.team1.name} vs ${m.team2.name}`);
+        }
+      } catch (e) { console.error('[Scoreboard] Failed to load match:', e); }
+    };
+
+    // Load initial snapshot from score_live
+    const loadSnapshot = async () => {
+      try {
+        const { data, error } = await (supabase.from('score_live') as any)
+          .select('snapshot')
+          .eq('match_id', id)
+          .maybeSingle();
+        if (data?.snapshot && mounted) {
+          const snap = data.snapshot as ScoreboardSnapshot;
+          setSnapshot(snap);
+          if (snap.overlay && snap.overlay !== 'none') {
+            setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+          }
+          lastPayloadTs.current = snap.ts || Date.now();
+          console.log(`[Scoreboard] Initial snapshot loaded, ts=${snap.ts}`);
+        }
+        if (error) console.error('[Scoreboard] score_live fetch error:', error);
+      } catch (e) { console.error('[Scoreboard] score_live fetch failed:', e); }
     };
 
     const loadDisplay = async () => {
@@ -32,15 +93,20 @@ const Scoreboard = () => {
       } catch (e) { console.error(e); }
     };
 
-    // Initial load
+    // Initial loads in parallel
     loadMatch();
+    loadSnapshot();
     loadDisplay();
 
-    // Helper: apply snapshot to match state
+    // Apply incoming snapshot
     const applySnapshot = (snap: ScoreboardSnapshot) => {
+      lastPayloadTs.current = Date.now();
+      console.log(`[Scoreboard] Snapshot received: ${snap.inn.runs}-${snap.inn.wickets} (${snap.inn.balls} balls) ts=${Date.now()}`);
+      setSnapshot(snap);
       if (snap.overlay && snap.overlay !== 'none') {
         setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
       }
+      // Also update match object for summary/FOW views
       setMatch(prev => {
         if (!prev) return prev;
         const m = JSON.parse(JSON.stringify(prev)) as Match;
@@ -83,7 +149,7 @@ const Scoreboard = () => {
       });
     };
 
-    // PRIMARY: Listen to score_live table (tiny table = instant postgres_changes)
+    // PRIMARY: Listen to score_live table via postgres_changes
     const scoreLiveCh = supabase
       .channel(`score-live-${id}-${Date.now()}`)
       .on(
@@ -97,9 +163,20 @@ const Scoreboard = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`[Scoreboard] score_live channel: ${status}`);
+        if (mounted) setConnectionStatus(status);
+        if (status === 'SUBSCRIBED') {
+          realtimeConnected = true;
+          retryCount.current = 0;
+        }
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          realtimeConnected = false;
+          console.error(`[Scoreboard] Realtime ${status}, will retry...`);
+        }
+      });
 
-    // SECONDARY: Broadcast (bonus, may or may not arrive)
+    // SECONDARY: Broadcast channel
     const broadcastCh = supabase
       .channel(`broadcast-${id}`)
       .on('broadcast', { event: 'match_update' }, (payload) => {
@@ -109,16 +186,15 @@ const Scoreboard = () => {
           applySnapshot(data.snapshot as ScoreboardSnapshot);
           return;
         }
-        if (data?.match_data) {
-          setMatch({ ...data.match_data, id } as unknown as Match);
-        }
         if (data?.display_state) {
           setDisplay(prev => ({ ...prev, ...data.display_state }));
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`[Scoreboard] broadcast channel: ${status}`);
+      });
 
-    // BACKUP: Postgres changes on matches table (slow but reliable)
+    // BACKUP: postgres_changes on matches table (for display_state changes)
     const pgCh = supabase
       .channel(`pg-${id}-${Date.now()}`)
       .on(
@@ -127,19 +203,50 @@ const Scoreboard = () => {
         (payload) => {
           if (!mounted) return;
           const row = payload.new as any;
-          if (row?.match_data) {
-            setMatch({ ...row.match_data, id } as unknown as Match);
-          }
           if (row?.display_state) {
             setDisplay(row.display_state as DisplayState);
+          }
+          // Only use match_data as fallback if no recent snapshot
+          if (row?.match_data && Date.now() - lastPayloadTs.current > 5000) {
+            setMatch({ ...row.match_data, id } as unknown as Match);
           }
         }
       )
       .subscribe();
 
-    // Safety poll every 30s
-    // Poll every 5s as backup (realtime via score_live should be instant)
-    fallbackTimer = setInterval(loadMatch, 5000);
+    // FALLBACK POLLING: Only polls score_live (lightweight)
+    // Uses dynamic interval: 3s if realtime is down, 15s if connected
+    const pollScoreLive = async () => {
+      if (!mounted) return;
+      try {
+        const { data } = await (supabase.from('score_live') as any)
+          .select('snapshot')
+          .eq('match_id', id)
+          .maybeSingle();
+        if (data?.snapshot && mounted) {
+          const snap = data.snapshot as ScoreboardSnapshot;
+          // Only apply if newer than last received
+          if (snap.ts && snap.ts > lastPayloadTs.current) {
+            console.log(`[Scoreboard] Poll found newer snapshot, ts=${snap.ts}`);
+            applySnapshot(snap);
+          }
+        }
+      } catch (e) { console.error('[Scoreboard] Poll failed:', e); }
+    };
+
+    // Dynamic polling: fast when disconnected, slow when connected
+    const startPolling = () => {
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      const interval = realtimeConnected ? 15000 : 3000;
+      console.log(`[Scoreboard] Polling interval: ${interval}ms (realtime=${realtimeConnected})`);
+      fallbackTimer = setInterval(() => {
+        pollScoreLive();
+        // Re-adjust interval if connection status changed
+        if (realtimeConnected && interval === 3000) startPolling();
+        if (!realtimeConnected && interval === 15000) startPolling();
+      }, interval);
+    };
+    startPolling();
 
     return () => {
       mounted = false;
@@ -147,6 +254,7 @@ const Scoreboard = () => {
       supabase.removeChannel(scoreLiveCh);
       supabase.removeChannel(broadcastCh);
       supabase.removeChannel(pgCh);
+      console.log('[Scoreboard] Cleanup done');
     };
   }, [id]);
 
@@ -158,23 +266,50 @@ const Scoreboard = () => {
     if (display.mode !== 'vs') { vsAnimDone.current = false; setVsAnimIn(false); }
   }, [display.mode]);
 
+  if (!match && !snapshot) {
+    return (
+      <div className="w-full min-h-screen bg-transparent flex items-end justify-center p-0">
+        <div className="w-full">
+          <div className="h-[2px] w-full bg-white/30" />
+          <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a55, #e8a83255, #f5c84255, #e8a83255, #c17a1a55)' }} />
+          <div className="relative flex items-center justify-center" style={{ height: '62px', background: 'linear-gradient(180deg, #2d2272 0%, #150f50 100%)' }}>
+            <span className="text-white/40 text-sm font-mono animate-pulse">Connecting to match...</span>
+          </div>
+          <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a55, #e8a83255, #f5c84255, #e8a83255, #c17a1a55)' }} />
+        </div>
+      </div>
+    );
+  }
   if (!match) return <div className="w-full h-screen bg-transparent" />;
 
+  // Use snapshot as primary source for score bar, fall back to match
+  const s = snapshot;
   const currentInnings = match.currentInningsIndex >= 0 ? match.innings[match.currentInningsIndex] : null;
   const inn1 = match.innings[0] || null;
   const battingTeam = currentInnings ? (currentInnings.battingTeamIndex === 0 ? match.team1 : match.team2) : null;
   const bowlingTeam = currentInnings ? (currentInnings.bowlingTeamIndex === 0 ? match.team1 : match.team2) : null;
+  // Prefer snapshot player data for score bar (instant), fall back to match
+  const strikerData = s?.s || (currentInnings && battingTeam ? (() => { const p = battingTeam.players.find(p => p.id === currentInnings.currentStrikerId); return p ? { name: p.name, runs: p.runs, bf: p.ballsFaced } : null; })() : null);
+  const nonStrikerData = s?.ns || (currentInnings && battingTeam ? (() => { const p = battingTeam.players.find(p => p.id === currentInnings.currentNonStrikerId); return p ? { name: p.name, runs: p.runs, bf: p.ballsFaced } : null; })() : null);
+  const bowlerData = s?.b || (currentInnings && bowlingTeam ? (() => { const p = bowlingTeam.players.find(p => p.id === currentInnings.currentBowlerId); return p ? { name: p.name, w: p.bowlingWickets, r: p.bowlingRuns, balls: p.bowlingBalls } : null; })() : null);
+  // For summary/FOW views, keep match-based references
   const striker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentStrikerId) : null;
   const nonStriker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentNonStrikerId) : null;
   const bowler = currentInnings && bowlingTeam ? bowlingTeam.players.find(p => p.id === currentInnings.currentBowlerId) : null;
-  const target = match.currentInningsIndex === 1 && inn1 ? inn1.runs + 1 : null;
-  const t1Color = match.team1.color || '#c62828';
-  const t2Color = match.team2.color || '#1565c0';
+  // Score values: prefer snapshot
+  const displayRuns = s ? s.inn.runs : (currentInnings?.runs ?? 0);
+  const displayWickets = s ? s.inn.wickets : (currentInnings?.wickets ?? 0);
+  const displayBalls = s ? s.inn.balls : (currentInnings?.balls ?? 0);
+  const target = (s ? s.inIdx === 1 && s.inn1Runs !== undefined ? s.inn1Runs + 1 : null : (match.currentInningsIndex === 1 && inn1 ? inn1.runs + 1 : null));
+  const t1Color = (s?.t1.color || match.team1.color || '#c62828');
+  const t2Color = (s?.t2.color || match.team2.color || '#1565c0');
   const batTeamColor = currentInnings ? (currentInnings.battingTeamIndex === 0 ? t1Color : t2Color) : t1Color;
   const bowlTeamColor = currentInnings ? (currentInnings.bowlingTeamIndex === 0 ? t1Color : t2Color) : t2Color;
 
   // Current over balls
+  // Current over balls: prefer snapshot.ov (instant), fallback to match events
   const currentOverBalls = (() => {
+    if (s?.ov && s.ov.length > 0) return s.ov;
     if (!currentInnings) return [];
     const bpo = match.ballsPerOver;
     const ballsInOver = currentInnings.balls % bpo || (currentInnings.balls > 0 ? bpo : 0);
@@ -253,8 +388,11 @@ const Scoreboard = () => {
 
   // ============ MAIN SCORE BAR - ICC EXACT MATCH ============
   const DefaultScoreBar = () => {
-    const need = target && currentInnings ? Math.max(0, target - currentInnings.runs) : null;
-    const remainBalls = currentInnings ? (match.overs * match.ballsPerOver - currentInnings.balls) : null;
+    const need = target ? Math.max(0, target - displayRuns) : null;
+    const remainBalls = (match.overs * match.ballsPerOver - displayBalls);
+    const bpo = s?.bpo || match.ballsPerOver;
+    const batTeamName = s ? (s.inn.batIdx === 0 ? s.t1.name : s.t2.name) : (battingTeam || match.team1).name;
+    const bowlTeamName = s ? (s.inn.batIdx === 0 ? s.t2.name : s.t1.name) : (bowlingTeam || match.team2).name;
 
     return (
       <div className="w-full">
@@ -281,22 +419,22 @@ const Scoreboard = () => {
           {/* Chevron 1 */}
           <ChevronSeparator />
 
-          {/* LEFT: Batsmen info */}
+          {/* LEFT: Batsmen info - uses snapshot data */}
           <div className="relative z-10 flex flex-col justify-center px-3 flex-1 min-w-0" style={{ maxWidth: '280px' }}>
-            {striker && (
+            {strikerData && (
               <div className="flex items-center gap-1.5">
                 <span className="text-cyan-300 text-sm font-bold">/</span>
-                <span className="font-display font-bold text-white text-[13px] uppercase tracking-wide flex-1 truncate">{striker.name}</span>
-                <span className="font-display font-black text-[#e91e63] text-lg tabular-nums">{striker.runs}</span>
-                <span className="text-white/50 text-[11px] tabular-nums w-6 text-right">{striker.ballsFaced}</span>
+                <span className="font-display font-bold text-white text-[13px] uppercase tracking-wide flex-1 truncate">{strikerData.name}</span>
+                <span className="font-display font-black text-[#e91e63] text-lg tabular-nums">{strikerData.runs}</span>
+                <span className="text-white/50 text-[11px] tabular-nums w-6 text-right">{strikerData.bf}</span>
               </div>
             )}
-            {nonStriker && (
+            {nonStrikerData && (
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="text-sm opacity-0">/</span>
-                <span className="font-display text-white/70 text-[13px] uppercase tracking-wide flex-1 truncate">{nonStriker.name}</span>
-                <span className="font-display font-bold text-[#e91e63] text-sm tabular-nums">{nonStriker.runs}</span>
-                <span className="text-white/40 text-[11px] tabular-nums w-6 text-right">{nonStriker.ballsFaced}</span>
+                <span className="font-display text-white/70 text-[13px] uppercase tracking-wide flex-1 truncate">{nonStrikerData.name}</span>
+                <span className="font-display font-bold text-[#e91e63] text-sm tabular-nums">{nonStrikerData.runs}</span>
+                <span className="text-white/40 text-[11px] tabular-nums w-6 text-right">{nonStrikerData.bf}</span>
               </div>
             )}
           </div>
@@ -304,7 +442,7 @@ const Scoreboard = () => {
           {/* Chevron 2 */}
           <ChevronSeparator />
 
-          {/* CENTER: Score info */}
+          {/* CENTER: Score info - uses snapshot values */}
           <div className="relative z-10 flex flex-col items-center justify-center px-4 flex-shrink-0 min-w-[220px]">
             {overlayData ? (
               <div className="px-5 py-1.5 rounded" style={{ backgroundColor: overlayData.color }}>
@@ -315,26 +453,24 @@ const Scoreboard = () => {
                 {/* Top row: teams + score + overs */}
                 <div className="flex items-center gap-2">
                   <span className="text-white/80 text-[12px] font-display tracking-wide">
-                    {(battingTeam || match.team1).name.slice(0, 3).toUpperCase()}
+                    {batTeamName.slice(0, 3).toUpperCase()}
                     <span className="text-white/40 mx-1">v</span>
-                    <span className="font-bold text-white">{(bowlingTeam || match.team2).name.slice(0, 3).toUpperCase()}</span>
+                    <span className="font-bold text-white">{bowlTeamName.slice(0, 3).toUpperCase()}</span>
                   </span>
                   <div className="px-3 py-0.5 rounded font-display font-black text-white text-lg tabular-nums" style={{ backgroundColor: '#e91e63' }}>
-                    {currentInnings ? `${currentInnings.runs}-${currentInnings.wickets}` : '0-0'}
+                    {`${displayRuns}-${displayWickets}`}
                   </div>
-                  {currentInnings && (
-                    <span className="text-white/70 text-[12px] font-display">
-                      <span className="font-bold tabular-nums">{getOversString(currentInnings.balls, match.ballsPerOver)}</span>
-                      <span className="text-[10px] text-white/40 ml-1 tracking-wider">OVERS</span>
-                    </span>
-                  )}
+                  <span className="text-white/70 text-[12px] font-display">
+                    <span className="font-bold tabular-nums">{getOversString(displayBalls, bpo)}</span>
+                    <span className="text-[10px] text-white/40 ml-1 tracking-wider">OVERS</span>
+                  </span>
                 </div>
                 {/* Bottom row: target or toss */}
                 <div className="text-[11px] text-white/80 font-display font-bold tracking-wider mt-0.5 uppercase">
-                  {need !== null && need > 0 && remainBalls !== null ? (
+                  {need !== null && need > 0 && remainBalls > 0 ? (
                     <>NEED <span className="text-amber-300">{need}</span> MORE RUNS FROM <span className="text-amber-300">{remainBalls}</span> BALLS</>
-                  ) : match.status === 'finished' && match.winner ? (
-                    <span className="text-amber-300">{match.winner} WON</span>
+                  ) : (s?.status || match.status) === 'finished' && (s?.winner || match.winner) ? (
+                    <span className="text-amber-300">{s?.winner || match.winner} WON</span>
                   ) : (
                     <span className="text-white/40">
                       {match.tossWonBy === 0 ? match.team1.name.toUpperCase() : match.team2.name.toUpperCase()} WON THE TOSS
@@ -348,19 +484,19 @@ const Scoreboard = () => {
           {/* Chevron 3 */}
           <ChevronSeparator />
 
-          {/* RIGHT: Bowler + Over balls */}
+          {/* RIGHT: Bowler + Over balls - uses snapshot data */}
           <div className="relative z-10 flex flex-col justify-center px-3 flex-1 min-w-0" style={{ maxWidth: '280px' }}>
-            {bowler && (
+            {bowlerData && (
               <div className="flex items-center gap-2">
-                <span className="font-display font-bold text-white text-[13px] uppercase tracking-wide flex-1 truncate">{bowler.name}</span>
-                <span className="font-display font-black text-[#4caf50] text-lg tabular-nums">{bowler.bowlingWickets}-{bowler.bowlingRuns}</span>
-                <span className="text-white/50 text-[11px] tabular-nums">{getOversString(bowler.bowlingBalls, match.ballsPerOver)}</span>
+                <span className="font-display font-bold text-white text-[13px] uppercase tracking-wide flex-1 truncate">{bowlerData.name}</span>
+                <span className="font-display font-black text-[#4caf50] text-lg tabular-nums">{bowlerData.w}-{bowlerData.r}</span>
+                <span className="text-white/50 text-[11px] tabular-nums">{getOversString(bowlerData.balls, bpo)}</span>
               </div>
             )}
             {/* This over balls */}
             <div className="flex gap-1 mt-1">
               {currentOverBalls.map((e, i) => <BallCircle key={i} event={e} />)}
-              {Array.from({ length: Math.max(0, match.ballsPerOver - currentOverBalls.length) }).map((_, i) => <EmptyBall key={`e-${i}`} />)}
+              {Array.from({ length: Math.max(0, bpo - currentOverBalls.length) }).map((_, i) => <EmptyBall key={`e-${i}`} />)}
             </div>
           </div>
 
@@ -629,5 +765,11 @@ const Scoreboard = () => {
     </div>
   );
 };
+
+const Scoreboard = () => (
+  <ScoreboardErrorBoundary>
+    <ScoreboardInner />
+  </ScoreboardErrorBoundary>
+);
 
 export default Scoreboard;
