@@ -157,6 +157,7 @@ const ScoreboardInner = () => {
         { event: '*', schema: 'public', table: 'score_live', filter: `match_id=eq.${id}` },
         (payload) => {
           if (!mounted) return;
+          console.log('REALTIME_PAYLOAD', Date.now(), payload.eventType, payload.new);
           const row = payload.new as any;
           if (row?.snapshot) {
             applySnapshot(row.snapshot as ScoreboardSnapshot);
@@ -164,15 +165,21 @@ const ScoreboardInner = () => {
         }
       )
       .subscribe((status) => {
-        console.log(`[Scoreboard] score_live channel: ${status}`);
+        console.log('SUBSCRIBED', id, Date.now(), 'status=', status);
         if (mounted) setConnectionStatus(status);
         if (status === 'SUBSCRIBED') {
           realtimeConnected = true;
           retryCount.current = 0;
+          // Stop fast polling when realtime is working
+          if (fallbackTimer) {
+            clearInterval(fallbackTimer);
+            fallbackTimer = null;
+          }
         }
         if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
           realtimeConnected = false;
-          console.error(`[Scoreboard] Realtime ${status}, will retry...`);
+          console.error(`[Scoreboard] Realtime ${status}, starting fallback polling...`);
+          if (!fallbackTimer) startPolling();
         }
       });
 
@@ -214,10 +221,10 @@ const ScoreboardInner = () => {
       )
       .subscribe();
 
-    // FALLBACK POLLING: Only polls score_live (lightweight)
-    // Uses dynamic interval: 3s if realtime is down, 15s if connected
+    // FALLBACK POLLING: Only runs when realtime is NOT connected
     const pollScoreLive = async () => {
       if (!mounted) return;
+      console.log('POLL_FETCH', Date.now(), 'realtimeConnected=', realtimeConnected);
       try {
         const { data } = await (supabase.from('score_live') as any)
           .select('snapshot')
@@ -225,27 +232,22 @@ const ScoreboardInner = () => {
           .maybeSingle();
         if (data?.snapshot && mounted) {
           const snap = data.snapshot as ScoreboardSnapshot;
-          // Only apply if newer than last received
           if (snap.ts && snap.ts > lastPayloadTs.current) {
-            console.log(`[Scoreboard] Poll found newer snapshot, ts=${snap.ts}`);
+            console.log('POLL_NEWER_SNAPSHOT', snap.ts, '>', lastPayloadTs.current);
             applySnapshot(snap);
           }
         }
       } catch (e) { console.error('[Scoreboard] Poll failed:', e); }
     };
 
-    // Dynamic polling: fast when disconnected, slow when connected
+    // Polling ONLY starts when realtime is not connected
     const startPolling = () => {
       if (fallbackTimer) clearInterval(fallbackTimer);
-      const interval = realtimeConnected ? 15000 : 3000;
-      console.log(`[Scoreboard] Polling interval: ${interval}ms (realtime=${realtimeConnected})`);
-      fallbackTimer = setInterval(() => {
-        pollScoreLive();
-        // Re-adjust interval if connection status changed
-        if (realtimeConnected && interval === 3000) startPolling();
-        if (!realtimeConnected && interval === 15000) startPolling();
-      }, interval);
+      if (realtimeConnected) return; // Don't poll if realtime is working
+      console.log('[Scoreboard] Starting fallback polling (3s interval)');
+      fallbackTimer = setInterval(pollScoreLive, 3000);
     };
+    // Start initial polling (will stop once realtime SUBSCRIBES)
     startPolling();
 
     return () => {
