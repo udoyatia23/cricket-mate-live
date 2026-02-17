@@ -707,6 +707,9 @@ const MatchController = () => {
           <Link to={`/scoreboard2/${match.id}`} target="_blank">
             <span className="text-white text-sm font-semibold underline ml-2">SCOREBOARD LINKS 2</span>
           </Link>
+          <Link to={`/scoreboard3/${match.id}`} target="_blank">
+            <span className="text-white text-sm font-semibold underline ml-2">SCOREBOARD LINKS 3</span>
+          </Link>
         </div>
       </header>
 
