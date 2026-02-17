@@ -51,6 +51,20 @@ const MatchController = () => {
     }
   }, [id]);
 
+  // Ensure score_live row exists when controller opens (so scoreboard doesn't hang)
+  const scoreLiveInitDone = useRef(false);
+  useEffect(() => {
+    if (!id || !match || scoreLiveInitDone.current) return;
+    scoreLiveInitDone.current = true;
+    (supabase.from('score_live') as any).upsert(
+      { match_id: id, snapshot: {}, updated_at: new Date().toISOString() },
+      { onConflict: 'match_id', ignoreDuplicates: true }
+    ).then(({ error }: any) => {
+      if (error) console.error('score_live init failed:', error);
+      else console.log('score_live row ensured for match', id);
+    });
+  }, [id, match]);
+
   useEffect(() => {
     if (match) {
       setTeam1Color(match.team1.color || '#ff0000');

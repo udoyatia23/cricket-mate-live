@@ -206,13 +206,16 @@ const ScoreboardInner = () => {
   }, [display.mode]);
 
   if (!match && !snapshot) {
+    const msg = connectionStatus === 'SUBSCRIBED'
+      ? 'Waiting for controller to start...'
+      : 'Connecting to match...';
     return (
       <div className="w-full min-h-screen bg-transparent flex items-end justify-center p-0">
         <div className="w-full">
           <div className="h-[2px] w-full bg-white/30" />
           <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a55, #e8a83255, #f5c84255, #e8a83255, #c17a1a55)' }} />
           <div className="relative flex items-center justify-center" style={{ height: '62px', background: 'linear-gradient(180deg, #2d2272 0%, #150f50 100%)' }}>
-            <span className="text-white/40 text-sm font-mono animate-pulse">Connecting to match...</span>
+            <span className="text-white/40 text-sm font-mono animate-pulse">{msg}</span>
           </div>
           <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a55, #e8a83255, #f5c84255, #e8a83255, #c17a1a55)' }} />
         </div>
