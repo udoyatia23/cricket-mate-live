@@ -98,55 +98,16 @@ const ScoreboardInner = () => {
     loadSnapshot();
     loadDisplay();
 
-    // Apply incoming snapshot
+    // Apply incoming snapshot - COMPLETE STATE REPLACEMENT, no merging
     const applySnapshot = (snap: ScoreboardSnapshot) => {
       lastPayloadTs.current = Date.now();
-      console.log(`[Scoreboard] Snapshot received: ${snap.inn.runs}-${snap.inn.wickets} (${snap.inn.balls} balls) ts=${Date.now()}`);
+      console.log('SNAPSHOT_APPLIED', Date.now(), 'inIdx=', snap.inIdx, 'runs=', snap.inn.runs, 'wickets=', snap.inn.wickets, 'balls=', snap.inn.balls);
+      // Replace snapshot entirely - this is the SOLE source of truth for score bar
       setSnapshot(snap);
       if (snap.overlay && snap.overlay !== 'none') {
         setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
       }
-      // Also update match object for summary/FOW views
-      setMatch(prev => {
-        if (!prev) return prev;
-        const m = JSON.parse(JSON.stringify(prev)) as Match;
-        m.status = snap.status as Match['status'];
-        m.winner = snap.winner;
-        m.winMargin = snap.winMargin;
-        m.currentInningsIndex = snap.inIdx;
-        m.team1.name = snap.t1.name;
-        m.team1.color = snap.t1.color;
-        if (snap.t1.logo) m.team1.logo = snap.t1.logo;
-        m.team2.name = snap.t2.name;
-        m.team2.color = snap.t2.color;
-        if (snap.t2.logo) m.team2.logo = snap.t2.logo;
-        const inn = m.innings[snap.inIdx];
-        if (inn) {
-          inn.runs = snap.inn.runs;
-          inn.wickets = snap.inn.wickets;
-          inn.balls = snap.inn.balls;
-          if (snap.ov.length > 0) {
-            const existingIds = new Set(inn.events.map(e => e.id));
-            const newEvents = snap.ov.filter(e => !existingIds.has(e.id));
-            inn.events.push(...newEvents);
-          }
-          const batTeam = inn.battingTeamIndex === 0 ? m.team1 : m.team2;
-          const bowlTeam = inn.bowlingTeamIndex === 0 ? m.team1 : m.team2;
-          if (snap.s) {
-            const sp = batTeam.players.find(p => p.name === snap.s!.name);
-            if (sp) { sp.runs = snap.s.runs; sp.ballsFaced = snap.s.bf; inn.currentStrikerId = sp.id; }
-          }
-          if (snap.ns) {
-            const nsp = batTeam.players.find(p => p.name === snap.ns!.name);
-            if (nsp) { nsp.runs = snap.ns.runs; nsp.ballsFaced = snap.ns.bf; inn.currentNonStrikerId = nsp.id; }
-          }
-          if (snap.b) {
-            const bp = bowlTeam.players.find(p => p.name === snap.b!.name);
-            if (bp) { bp.bowlingWickets = snap.b.w; bp.bowlingRuns = snap.b.r; bp.bowlingBalls = snap.b.balls; inn.currentBowlerId = bp.id; }
-          }
-        }
-        return m;
-      });
+      // Do NOT merge into match state - snapshot IS the truth
     };
 
     // PRIMARY: Listen to score_live table via postgres_changes
@@ -157,7 +118,8 @@ const ScoreboardInner = () => {
         { event: '*', schema: 'public', table: 'score_live', filter: `match_id=eq.${id}` },
         (payload) => {
           if (!mounted) return;
-          console.log('REALTIME_PAYLOAD', Date.now(), payload.eventType, payload.new);
+          const snap = (payload.new as any)?.snapshot as ScoreboardSnapshot | undefined;
+          console.log('REALTIME_PAYLOAD', Date.now(), payload.eventType, 'inIdx=', snap?.inIdx, 'runs=', snap?.inn.runs, 'balls=', snap?.inn.balls);
           const row = payload.new as any;
           if (row?.snapshot) {
             applySnapshot(row.snapshot as ScoreboardSnapshot);
@@ -178,8 +140,7 @@ const ScoreboardInner = () => {
         }
         if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
           realtimeConnected = false;
-          console.error(`[Scoreboard] Realtime ${status}, starting fallback polling...`);
-          if (!fallbackTimer) startPolling();
+          console.error(`[Scoreboard] Realtime ${status}, no fallback polling (disabled for testing)`);
         }
       });
 
@@ -221,34 +182,10 @@ const ScoreboardInner = () => {
       )
       .subscribe();
 
-    // FALLBACK POLLING: Only runs when realtime is NOT connected
-    const pollScoreLive = async () => {
-      if (!mounted) return;
-      console.log('POLL_FETCH', Date.now(), 'realtimeConnected=', realtimeConnected);
-      try {
-        const { data } = await (supabase.from('score_live') as any)
-          .select('snapshot')
-          .eq('match_id', id)
-          .maybeSingle();
-        if (data?.snapshot && mounted) {
-          const snap = data.snapshot as ScoreboardSnapshot;
-          if (snap.ts && snap.ts > lastPayloadTs.current) {
-            console.log('POLL_NEWER_SNAPSHOT', snap.ts, '>', lastPayloadTs.current);
-            applySnapshot(snap);
-          }
-        }
-      } catch (e) { console.error('[Scoreboard] Poll failed:', e); }
-    };
-
-    // Polling ONLY starts when realtime is not connected
-    const startPolling = () => {
-      if (fallbackTimer) clearInterval(fallbackTimer);
-      if (realtimeConnected) return; // Don't poll if realtime is working
-      console.log('[Scoreboard] Starting fallback polling (3s interval)');
-      fallbackTimer = setInterval(pollScoreLive, 3000);
-    };
-    // Start initial polling (will stop once realtime SUBSCRIBES)
-    startPolling();
+    // POLLING DISABLED - testing pure realtime only
+    // const pollScoreLive = async () => { ... };
+    // const startPolling = () => { ... };
+    console.log('[Scoreboard] Polling DISABLED - pure realtime mode');
 
     return () => {
       mounted = false;
@@ -284,47 +221,32 @@ const ScoreboardInner = () => {
   }
   if (!match) return <div className="w-full h-screen bg-transparent" />;
 
-  // Use snapshot as primary source for score bar, fall back to match
+  // SNAPSHOT is the SOLE source of truth for score bar
+  // match is only used for summary/FOW/teams views
   const s = snapshot;
   const currentInnings = match.currentInningsIndex >= 0 ? match.innings[match.currentInningsIndex] : null;
-  const inn1 = match.innings[0] || null;
   const battingTeam = currentInnings ? (currentInnings.battingTeamIndex === 0 ? match.team1 : match.team2) : null;
   const bowlingTeam = currentInnings ? (currentInnings.bowlingTeamIndex === 0 ? match.team1 : match.team2) : null;
-  // Prefer snapshot player data for score bar (instant), fall back to match
-  const strikerData = s?.s || (currentInnings && battingTeam ? (() => { const p = battingTeam.players.find(p => p.id === currentInnings.currentStrikerId); return p ? { name: p.name, runs: p.runs, bf: p.ballsFaced } : null; })() : null);
-  const nonStrikerData = s?.ns || (currentInnings && battingTeam ? (() => { const p = battingTeam.players.find(p => p.id === currentInnings.currentNonStrikerId); return p ? { name: p.name, runs: p.runs, bf: p.ballsFaced } : null; })() : null);
-  const bowlerData = s?.b || (currentInnings && bowlingTeam ? (() => { const p = bowlingTeam.players.find(p => p.id === currentInnings.currentBowlerId); return p ? { name: p.name, w: p.bowlingWickets, r: p.bowlingRuns, balls: p.bowlingBalls } : null; })() : null);
+  // Score bar uses ONLY snapshot data - no fallback to match state
+  const strikerData = s?.s || null;
+  const nonStrikerData = s?.ns || null;
+  const bowlerData = s?.b || null;
   // For summary/FOW views, keep match-based references
   const striker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentStrikerId) : null;
   const nonStriker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentNonStrikerId) : null;
   const bowler = currentInnings && bowlingTeam ? bowlingTeam.players.find(p => p.id === currentInnings.currentBowlerId) : null;
-  // Score values: prefer snapshot
-  const displayRuns = s ? s.inn.runs : (currentInnings?.runs ?? 0);
-  const displayWickets = s ? s.inn.wickets : (currentInnings?.wickets ?? 0);
-  const displayBalls = s ? s.inn.balls : (currentInnings?.balls ?? 0);
-  const target = (s ? s.inIdx === 1 && s.inn1Runs !== undefined ? s.inn1Runs + 1 : null : (match.currentInningsIndex === 1 && inn1 ? inn1.runs + 1 : null));
+  // Score values: ONLY from snapshot
+  const displayRuns = s ? s.inn.runs : 0;
+  const displayWickets = s ? s.inn.wickets : 0;
+  const displayBalls = s ? s.inn.balls : 0;
+  const target = s ? (s.inIdx === 1 && s.inn1Runs !== undefined ? s.inn1Runs + 1 : null) : null;
   const t1Color = (s?.t1.color || match.team1.color || '#c62828');
   const t2Color = (s?.t2.color || match.team2.color || '#1565c0');
-  const batTeamColor = currentInnings ? (currentInnings.battingTeamIndex === 0 ? t1Color : t2Color) : t1Color;
-  const bowlTeamColor = currentInnings ? (currentInnings.bowlingTeamIndex === 0 ? t1Color : t2Color) : t2Color;
+  const batTeamColor = s ? (s.inn.batIdx === 0 ? t1Color : t2Color) : t1Color;
+  const bowlTeamColor = s ? (s.inn.batIdx === 0 ? t2Color : t1Color) : t2Color;
 
-  // Current over balls
-  // Current over balls: prefer snapshot.ov (instant), fallback to match events
-  const currentOverBalls = (() => {
-    if (s?.ov && s.ov.length > 0) return s.ov;
-    if (!currentInnings) return [];
-    const bpo = match.ballsPerOver;
-    const ballsInOver = currentInnings.balls % bpo || (currentInnings.balls > 0 ? bpo : 0);
-    const events = currentInnings.events;
-    const result: typeof events = [];
-    let legalCount = 0;
-    for (let i = events.length - 1; i >= 0 && result.length < bpo + 6; i--) {
-      result.unshift(events[i]);
-      if (events[i].isLegal) legalCount++;
-      if (legalCount >= ballsInOver) break;
-    }
-    return result;
-  })();
+  // Current over balls: ONLY from snapshot
+  const currentOverBalls = s?.ov || [];
 
   const getOverlayData = () => {
     if (display.overlay === 'none') return null;
