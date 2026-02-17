@@ -77,7 +77,18 @@ const Scoreboard2Inner = () => {
     const applySnapshot = (snap: ScoreboardSnapshot) => {
       lastPayloadTs.current = Date.now();
       setSnapshot(snap);
-      if (snap.overlay && snap.overlay !== 'none') setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+      // Apply display mode/overlay from snapshot for instant sync
+      if (snap.displayMode) {
+        setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: snap.overlay && snap.overlay !== 'none' ? snap.overlay : prev.overlay }));
+      } else if (snap.overlay && snap.overlay !== 'none') {
+        setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+      }
+      if (snap.displayCustomText) {
+        setDisplay(prev => ({ ...prev, customText: snap.displayCustomText }));
+      }
+      if (snap.displayMomPlayer) {
+        setDisplay(prev => ({ ...prev, momPlayer: snap.displayMomPlayer }));
+      }
     };
 
     const scoreLiveCh = supabase.channel(`score-live2-${id}-${Date.now()}`)

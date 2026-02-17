@@ -101,13 +101,21 @@ const ScoreboardInner = () => {
     // Apply incoming snapshot - COMPLETE STATE REPLACEMENT, no merging
     const applySnapshot = (snap: ScoreboardSnapshot) => {
       lastPayloadTs.current = Date.now();
-      console.log('SNAPSHOT_APPLIED', Date.now(), 'inIdx=', snap.inIdx, 'runs=', snap.inn.runs, 'wickets=', snap.inn.wickets, 'balls=', snap.inn.balls);
+      console.log('SNAPSHOT_APPLIED', Date.now(), 'inIdx=', snap.inIdx, 'runs=', snap.inn.runs, 'wickets=', snap.inn.wickets, 'balls=', snap.inn.balls, 'displayMode=', snap.displayMode);
       // Replace snapshot entirely - this is the SOLE source of truth for score bar
       setSnapshot(snap);
-      if (snap.overlay && snap.overlay !== 'none') {
+      // Apply display mode/overlay from snapshot for instant sync
+      if (snap.displayMode) {
+        setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: snap.overlay && snap.overlay !== 'none' ? snap.overlay : prev.overlay }));
+      } else if (snap.overlay && snap.overlay !== 'none') {
         setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
       }
-      // Do NOT merge into match state - snapshot IS the truth
+      if (snap.displayCustomText) {
+        setDisplay(prev => ({ ...prev, customText: snap.displayCustomText }));
+      }
+      if (snap.displayMomPlayer) {
+        setDisplay(prev => ({ ...prev, momPlayer: snap.displayMomPlayer }));
+      }
     };
 
     // PRIMARY: Listen to score_live table via postgres_changes

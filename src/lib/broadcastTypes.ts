@@ -38,5 +38,9 @@ export interface ScoreboardSnapshot {
   inn1Runs?: number;
   // Overlay
   overlay?: AnimationOverlay;
+  // Display mode (for instant display sync via score_live)
+  displayMode?: string;
+  displayCustomText?: string;
+  displayMomPlayer?: string;
   ts: number;
 }
