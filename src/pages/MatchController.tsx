@@ -84,19 +84,32 @@ const MatchController = () => {
     });
   }, []);
 
+  // Create a lightweight copy for broadcast (truncate events to keep payload small)
+  const createBroadcastSnapshot = useCallback((m: Match): Match => {
+    const snap = JSON.parse(JSON.stringify(m)) as Match;
+    // Only keep last 12 events per innings (enough for current over display)
+    snap.innings.forEach(inn => {
+      if (inn.events.length > 12) {
+        inn.events = inn.events.slice(-12);
+      }
+    });
+    return snap;
+  }, []);
+
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
     scoringLock.current = false;
-    // Send match_data + any pending overlay in ONE single broadcast
+    // Send LIGHTWEIGHT match_data + any pending overlay in ONE single broadcast
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
-    const payload: any = { match_data: deep };
+    const snapshot = createBroadcastSnapshot(deep);
+    const payload: any = { match_data: snapshot };
     if (overlay) {
       payload.display_state = { overlay, timestamp: Date.now() };
     }
     broadcastPayload(payload);
-    // Persist to DB (fire-and-forget)
+    // Persist full data to DB (fire-and-forget)
     updateMatch(deep).catch(console.error);
     if (overlay && id) {
       setDisplayState(id, { overlay });
@@ -107,7 +120,7 @@ const MatchController = () => {
         }, 3000);
       }
     }
-  }, [broadcastPayload, id]);
+  }, [broadcastPayload, id, createBroadcastSnapshot]);
 
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
