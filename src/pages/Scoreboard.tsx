@@ -36,85 +36,79 @@ const Scoreboard = () => {
     loadMatch();
     loadDisplay();
 
-    // PRIMARY: Ultra-lightweight broadcast snapshot (~500 bytes, instant delivery)
+    // Helper: apply snapshot to match state
+    const applySnapshot = (snap: ScoreboardSnapshot) => {
+      if (snap.overlay && snap.overlay !== 'none') {
+        setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+      }
+      setMatch(prev => {
+        if (!prev) return prev;
+        const m = JSON.parse(JSON.stringify(prev)) as Match;
+        m.status = snap.status as Match['status'];
+        m.winner = snap.winner;
+        m.winMargin = snap.winMargin;
+        m.currentInningsIndex = snap.inIdx;
+        m.team1.name = snap.t1.name;
+        m.team1.color = snap.t1.color;
+        if (snap.t1.logo) m.team1.logo = snap.t1.logo;
+        m.team2.name = snap.t2.name;
+        m.team2.color = snap.t2.color;
+        if (snap.t2.logo) m.team2.logo = snap.t2.logo;
+        const inn = m.innings[snap.inIdx];
+        if (inn) {
+          inn.runs = snap.inn.runs;
+          inn.wickets = snap.inn.wickets;
+          inn.balls = snap.inn.balls;
+          if (snap.ov.length > 0) {
+            const existingIds = new Set(inn.events.map(e => e.id));
+            const newEvents = snap.ov.filter(e => !existingIds.has(e.id));
+            inn.events.push(...newEvents);
+          }
+          const batTeam = inn.battingTeamIndex === 0 ? m.team1 : m.team2;
+          const bowlTeam = inn.bowlingTeamIndex === 0 ? m.team1 : m.team2;
+          if (snap.s) {
+            const sp = batTeam.players.find(p => p.name === snap.s!.name);
+            if (sp) { sp.runs = snap.s.runs; sp.ballsFaced = snap.s.bf; inn.currentStrikerId = sp.id; }
+          }
+          if (snap.ns) {
+            const nsp = batTeam.players.find(p => p.name === snap.ns!.name);
+            if (nsp) { nsp.runs = snap.ns.runs; nsp.ballsFaced = snap.ns.bf; inn.currentNonStrikerId = nsp.id; }
+          }
+          if (snap.b) {
+            const bp = bowlTeam.players.find(p => p.name === snap.b!.name);
+            if (bp) { bp.bowlingWickets = snap.b.w; bp.bowlingRuns = snap.b.r; bp.bowlingBalls = snap.b.balls; inn.currentBowlerId = bp.id; }
+          }
+        }
+        return m;
+      });
+    };
+
+    // PRIMARY: Listen to score_live table (tiny table = instant postgres_changes)
+    const scoreLiveCh = supabase
+      .channel(`score-live-${id}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'score_live', filter: `match_id=eq.${id}` },
+        (payload) => {
+          if (!mounted) return;
+          const row = payload.new as any;
+          if (row?.snapshot) {
+            applySnapshot(row.snapshot as ScoreboardSnapshot);
+          }
+        }
+      )
+      .subscribe();
+
+    // SECONDARY: Broadcast (bonus, may or may not arrive)
     const broadcastCh = supabase
       .channel(`broadcast-${id}`)
       .on('broadcast', { event: 'match_update' }, (payload) => {
         if (!mounted) return;
         const data = payload.payload;
-        // New snapshot format (tiny payload)
         if (data?.snapshot) {
-          const snap = data.snapshot as ScoreboardSnapshot;
-          // Apply overlay immediately
-          if (snap.overlay && snap.overlay !== 'none') {
-            setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
-          }
-          // Apply to match state
-          setMatch(prev => {
-            if (!prev) return prev; // wait for DB load for initial state
-            const m = JSON.parse(JSON.stringify(prev)) as Match;
-            // Update match meta
-            m.status = snap.status as Match['status'];
-            m.winner = snap.winner;
-            m.winMargin = snap.winMargin;
-            m.currentInningsIndex = snap.inIdx;
-            m.team1.name = snap.t1.name;
-            m.team1.color = snap.t1.color;
-            if (snap.t1.logo) m.team1.logo = snap.t1.logo;
-            m.team2.name = snap.t2.name;
-            m.team2.color = snap.t2.color;
-            if (snap.t2.logo) m.team2.logo = snap.t2.logo;
-            // Update current innings stats
-            const inn = m.innings[snap.inIdx];
-            if (inn) {
-              inn.runs = snap.inn.runs;
-              inn.wickets = snap.inn.wickets;
-              inn.balls = snap.inn.balls;
-              // Update current over events (append new ones)
-              if (snap.ov.length > 0) {
-                const lastSnapEvent = snap.ov[snap.ov.length - 1];
-                const lastInnEvent = inn.events.length > 0 ? inn.events[inn.events.length - 1] : null;
-                if (!lastInnEvent || lastInnEvent.id !== lastSnapEvent.id) {
-                  // Find new events not in inn.events
-                  const existingIds = new Set(inn.events.map(e => e.id));
-                  const newEvents = snap.ov.filter(e => !existingIds.has(e.id));
-                  inn.events.push(...newEvents);
-                }
-              }
-              // Update player stats from snapshot
-              const batTeam = inn.battingTeamIndex === 0 ? m.team1 : m.team2;
-              const bowlTeam = inn.bowlingTeamIndex === 0 ? m.team1 : m.team2;
-              if (snap.s) {
-                const sp = batTeam.players.find(p => p.name === snap.s!.name);
-                if (sp) {
-                  sp.runs = snap.s.runs;
-                  sp.ballsFaced = snap.s.bf;
-                  inn.currentStrikerId = sp.id;
-                }
-              }
-              if (snap.ns) {
-                const nsp = batTeam.players.find(p => p.name === snap.ns!.name);
-                if (nsp) {
-                  nsp.runs = snap.ns.runs;
-                  nsp.ballsFaced = snap.ns.bf;
-                  inn.currentNonStrikerId = nsp.id;
-                }
-              }
-              if (snap.b) {
-                const bp = bowlTeam.players.find(p => p.name === snap.b!.name);
-                if (bp) {
-                  bp.bowlingWickets = snap.b.w;
-                  bp.bowlingRuns = snap.b.r;
-                  bp.bowlingBalls = snap.b.balls;
-                  inn.currentBowlerId = bp.id;
-                }
-              }
-            }
-            return m;
-          });
+          applySnapshot(data.snapshot as ScoreboardSnapshot);
           return;
         }
-        // Legacy: full match_data (fallback)
         if (data?.match_data) {
           setMatch({ ...data.match_data, id } as unknown as Match);
         }
@@ -124,7 +118,7 @@ const Scoreboard = () => {
       })
       .subscribe();
 
-    // BACKUP: Postgres changes (slower but reliable if broadcast fails)
+    // BACKUP: Postgres changes on matches table (slow but reliable)
     const pgCh = supabase
       .channel(`pg-${id}-${Date.now()}`)
       .on(
@@ -143,12 +137,13 @@ const Scoreboard = () => {
       )
       .subscribe();
 
-    // Safety poll every 60s
-    fallbackTimer = setInterval(loadMatch, 15000);
+    // Safety poll every 30s
+    fallbackTimer = setInterval(loadMatch, 30000);
 
     return () => {
       mounted = false;
       if (fallbackTimer) clearInterval(fallbackTimer);
+      supabase.removeChannel(scoreLiveCh);
       supabase.removeChannel(broadcastCh);
       supabase.removeChannel(pgCh);
     };

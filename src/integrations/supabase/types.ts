@@ -79,6 +79,24 @@ export type Database = {
         }
         Relationships: []
       }
+      score_live: {
+        Row: {
+          match_id: string
+          snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          match_id: string
+          snapshot?: Json
+          updated_at?: string
+        }
+        Update: {
+          match_id?: string
+          snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tournaments: {
         Row: {
           address: string | null
