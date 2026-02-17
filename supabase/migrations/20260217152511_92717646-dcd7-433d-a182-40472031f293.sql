@@ -1,0 +1,1 @@
+CREATE POLICY "score_live_delete" ON public.score_live FOR DELETE USING (true);
