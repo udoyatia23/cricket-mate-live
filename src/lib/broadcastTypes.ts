@@ -43,5 +43,10 @@ export interface ScoreboardSnapshot {
   displayCustomText?: string;
   displayMomPlayer?: string;
   venue?: string;
+  // Boundary counters
+  totalFours?: number;
+  totalSixes?: number;
+  // Boundary alert trigger: 'fours' | 'sixes' | undefined
+  boundaryAlert?: 'fours' | 'sixes';
   ts: number;
 }
