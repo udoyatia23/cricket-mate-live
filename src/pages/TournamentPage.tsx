@@ -6,15 +6,17 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Trophy, Plus, ArrowLeft, Play, Eye, Trash2, ImagePlus } from 'lucide-react';
+import { Trophy, Plus, ArrowLeft, Play, Eye, Trash2, ImagePlus, BarChart2 } from 'lucide-react';
 import { Tournament, Match } from '@/types/cricket';
 import { getTournament, getMatchesForTournament, addMatch, deleteMatch } from '@/lib/store';
+import TournamentStats from '@/components/TournamentStats';
 
 const TournamentPage = () => {
   const { id } = useParams<{ id: string }>();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'matches' | 'stats'>('matches');
 
   const [team1Name, setTeam1Name] = useState('');
   const [team2Name, setTeam2Name] = useState('');
@@ -111,183 +113,219 @@ const TournamentPage = () => {
           <p className="text-muted-foreground mb-6">📍 {tournament.address}</p>
         )}
 
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="font-display text-2xl font-bold">Matches</h2>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Create Match</Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-display text-xl">New Match</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Team 1</Label>
-                    <Input value={team1Name} onChange={e => setTeam1Name(e.target.value)} placeholder="Team 1 Name" className="mt-1 bg-secondary" />
-                    <Label className="mt-2 block text-xs text-muted-foreground">Team 1 Logo</Label>
-                    <div className="mt-1 flex items-center gap-2">
-                      {team1Logo ? (
-                        <img src={team1Logo} alt="T1 Logo" className="w-10 h-10 rounded object-cover border border-border" />
-                      ) : (
-                        <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
-                          <ImagePlus className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      <label className="cursor-pointer text-xs text-primary hover:underline">
-                        {team1Logo ? 'Change' : 'Upload'}
-                        <input type="file" accept="image/*" className="hidden" onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => setTeam1Logo(ev.target?.result as string);
-                            reader.readAsDataURL(file);
-                          }
-                        }} />
-                      </label>
-                      {team1Logo && <button onClick={() => setTeam1Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Team 2</Label>
-                    <Input value={team2Name} onChange={e => setTeam2Name(e.target.value)} placeholder="Team 2 Name" className="mt-1 bg-secondary" />
-                    <Label className="mt-2 block text-xs text-muted-foreground">Team 2 Logo</Label>
-                    <div className="mt-1 flex items-center gap-2">
-                      {team2Logo ? (
-                        <img src={team2Logo} alt="T2 Logo" className="w-10 h-10 rounded object-cover border border-border" />
-                      ) : (
-                        <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
-                          <ImagePlus className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      <label className="cursor-pointer text-xs text-primary hover:underline">
-                        {team2Logo ? 'Change' : 'Upload'}
-                        <input type="file" accept="image/*" className="hidden" onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => setTeam2Logo(ev.target?.result as string);
-                            reader.readAsDataURL(file);
-                          }
-                        }} />
-                      </label>
-                      {team2Logo && <button onClick={() => setTeam2Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>Overs</Label>
-                    <Select value={overs} onValueChange={setOvers}>
-                      <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['5','6','10','15','20','50'].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Match No</Label>
-                    <Input type="number" value={matchNo} onChange={e => setMatchNo(e.target.value)} className="mt-1 bg-secondary" />
-                  </div>
-                  <div>
-                    <Label>Balls/Over</Label>
-                    <Select value={ballsPerOver} onValueChange={setBallsPerOver}>
-                      <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['4','5','6','8'].map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Toss Won By</Label>
-                  <RadioGroup value={tossWonBy} onValueChange={setTossWonBy} className="flex gap-6 mt-2">
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="0" id="toss-t1" />
-                      <Label htmlFor="toss-t1">{team1Name || 'Team 1'}</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="1" id="toss-t2" />
-                      <Label htmlFor="toss-t2">{team2Name || 'Team 2'}</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-                <div>
-                  <Label>Opted To</Label>
-                  <RadioGroup value={optedTo} onValueChange={(v) => setOptedTo(v as 'bat' | 'bowl')} className="flex gap-6 mt-2">
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="bat" id="opt-bat" />
-                      <Label htmlFor="opt-bat">Bat</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="bowl" id="opt-bowl" />
-                      <Label htmlFor="opt-bowl">Bowl</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-                <div>
-                  <Label>Match Type</Label>
-                  <Select value={matchType} onValueChange={setMatchType}>
-                    <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="group">Group Stage</SelectItem>
-                      <SelectItem value="semi">Semi Final</SelectItem>
-                      <SelectItem value="final">Final</SelectItem>
-                      <SelectItem value="friendly">Friendly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-3 justify-end pt-2">
-                  <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreateMatch}>Create Match</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+        {/* ── TABS ─────────────────────────────────────────────────────── */}
+        <div className="flex gap-1 mb-8 bg-secondary/40 rounded-xl p-1 w-fit border border-border">
+          <button
+            onClick={() => setActiveTab('matches')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'matches'
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Play className="w-4 h-4" />
+            Matches
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'stats'
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" />
+            Stats & Points
+          </button>
         </div>
 
-        {matches.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">No matches yet. Create your first match!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {matches.map((m) => (
-              <div key={m.id} className="gradient-card rounded-xl border border-border p-5 shadow-card hover:shadow-glow transition-all">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${statusColors[m.status]}`}>
-                        {m.status}
-                      </span>
-                      <span className="text-xs text-muted-foreground">Match #{m.matchNo} · {m.matchType}</span>
+        {/* ── STATS TAB ────────────────────────────────────────────────── */}
+        {activeTab === 'stats' && (
+          <TournamentStats matches={matches} />
+        )}
+
+        {/* ── MATCHES TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'matches' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display text-2xl font-bold">Matches</h2>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="mr-2 h-4 w-4" />Create Match</Button>
+                </DialogTrigger>
+                <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-xl">New Match</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Team 1</Label>
+                        <Input value={team1Name} onChange={e => setTeam1Name(e.target.value)} placeholder="Team 1 Name" className="mt-1 bg-secondary" />
+                        <Label className="mt-2 block text-xs text-muted-foreground">Team 1 Logo</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          {team1Logo ? (
+                            <img src={team1Logo} alt="T1 Logo" className="w-10 h-10 rounded object-cover border border-border" />
+                          ) : (
+                            <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
+                              <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <label className="cursor-pointer text-xs text-primary hover:underline">
+                            {team1Logo ? 'Change' : 'Upload'}
+                            <input type="file" accept="image/*" className="hidden" onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setTeam1Logo(ev.target?.result as string);
+                                reader.readAsDataURL(file);
+                              }
+                            }} />
+                          </label>
+                          {team1Logo && <button onClick={() => setTeam1Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Team 2</Label>
+                        <Input value={team2Name} onChange={e => setTeam2Name(e.target.value)} placeholder="Team 2 Name" className="mt-1 bg-secondary" />
+                        <Label className="mt-2 block text-xs text-muted-foreground">Team 2 Logo</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          {team2Logo ? (
+                            <img src={team2Logo} alt="T2 Logo" className="w-10 h-10 rounded object-cover border border-border" />
+                          ) : (
+                            <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
+                              <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <label className="cursor-pointer text-xs text-primary hover:underline">
+                            {team2Logo ? 'Change' : 'Upload'}
+                            <input type="file" accept="image/*" className="hidden" onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setTeam2Logo(ev.target?.result as string);
+                                reader.readAsDataURL(file);
+                              }
+                            }} />
+                          </label>
+                          {team2Logo && <button onClick={() => setTeam2Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="font-display text-xl font-semibold">
-                      {m.team1.name} <span className="text-muted-foreground mx-2">vs</span> {m.team2.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">{m.overs} overs</p>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Overs</Label>
+                        <Select value={overs} onValueChange={setOvers}>
+                          <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['5','6','10','15','20','50'].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Match No</Label>
+                        <Input type="number" value={matchNo} onChange={e => setMatchNo(e.target.value)} className="mt-1 bg-secondary" />
+                      </div>
+                      <div>
+                        <Label>Balls/Over</Label>
+                        <Select value={ballsPerOver} onValueChange={setBallsPerOver}>
+                          <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['4','5','6','8'].map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Toss Won By</Label>
+                      <RadioGroup value={tossWonBy} onValueChange={setTossWonBy} className="flex gap-6 mt-2">
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="0" id="toss-t1" />
+                          <Label htmlFor="toss-t1">{team1Name || 'Team 1'}</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="1" id="toss-t2" />
+                          <Label htmlFor="toss-t2">{team2Name || 'Team 2'}</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Opted To</Label>
+                      <RadioGroup value={optedTo} onValueChange={(v) => setOptedTo(v as 'bat' | 'bowl')} className="flex gap-6 mt-2">
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="bat" id="opt-bat" />
+                          <Label htmlFor="opt-bat">Bat</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="bowl" id="opt-bowl" />
+                          <Label htmlFor="opt-bowl">Bowl</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    <div>
+                      <Label>Match Type</Label>
+                      <Select value={matchType} onValueChange={setMatchType}>
+                        <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="group">Group Stage</SelectItem>
+                          <SelectItem value="semi">Semi Final</SelectItem>
+                          <SelectItem value="final">Final</SelectItem>
+                          <SelectItem value="friendly">Friendly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-3 justify-end pt-2">
+                      <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                      <Button onClick={handleCreateMatch}>Create Match</Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/controller/${m.id}`}>
-                      <Button size="sm" variant="default">
-                        <Play className="mr-1 h-3 w-3" />
-                        Controller
-                      </Button>
-                    </Link>
-                    <Link to={`/scoreboard/${m.id}`}>
-                      <Button size="sm" variant="secondary">
-                        <Eye className="mr-1 h-3 w-3" />
-                        Scoreboard
-                      </Button>
-                    </Link>
-                    <Button size="sm" variant="ghost" onClick={() => handleDeleteMatch(m.id)}>
-                      <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                  </div>
-                </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {matches.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-muted-foreground text-lg">No matches yet. Create your first match!</p>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-4">
+                {matches.map((m) => (
+                  <div key={m.id} className="gradient-card rounded-xl border border-border p-5 shadow-card hover:shadow-glow transition-all">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${statusColors[m.status]}`}>
+                            {m.status}
+                          </span>
+                          <span className="text-xs text-muted-foreground">Match #{m.matchNo} · {m.matchType}</span>
+                        </div>
+                        <h3 className="font-display text-xl font-semibold">
+                          {m.team1.name} <span className="text-muted-foreground mx-2">vs</span> {m.team2.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">{m.overs} overs</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/controller/${m.id}`}>
+                          <Button size="sm" variant="default">
+                            <Play className="mr-1 h-3 w-3" />
+                            Controller
+                          </Button>
+                        </Link>
+                        <Link to={`/scoreboard/${m.id}`}>
+                          <Button size="sm" variant="secondary">
+                            <Eye className="mr-1 h-3 w-3" />
+                            Scoreboard
+                          </Button>
+                        </Link>
+                        <Button size="sm" variant="ghost" onClick={() => handleDeleteMatch(m.id)}>
+                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -296,3 +334,4 @@ const TournamentPage = () => {
 };
 
 export default TournamentPage;
+
