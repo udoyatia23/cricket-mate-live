@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 're
 import ScoreboardTicker from '@/components/ScoreboardTicker';
 import BoundaryAlert from '@/components/BoundaryAlert';
 import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
+import MatchSummaryCard from '@/components/MatchSummaryCard';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -602,23 +603,7 @@ const Scoreboard2Inner = () => {
   );
 
   // ===== MATCH SUMMARY =====
-  const MatchSummary = () => (
-    <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
-      <div className="px-5 py-3" style={{ background: 'linear-gradient(135deg, #ff6f00, #ff8f00)' }}>
-        <span className="font-display text-lg md:text-xl font-black text-white tracking-wider">MATCH SUMMARY</span>
-      </div>
-      <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, rgba(200,180,140,0.3), rgba(200,180,140,0.8), rgba(200,180,140,0.3))' }} />
-      <div className="space-y-3 text-[#1a1a2e] text-sm md:text-base px-6 py-5" style={{ background: '#fff' }}>
-        <p><span className="text-gray-400">Toss:</span> <span className="font-display font-bold">{match.tossWonBy === 0 ? match.team1.name : match.team2.name}</span> won, opted to <span className="font-bold">{match.optedTo}</span></p>
-        {match.innings.map((inn, idx) => {
-          const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
-          return <p key={idx}><span className="text-gray-400">{bt.name}:</span> <span className="font-display font-bold text-lg">{inn.runs}/{inn.wickets}</span> <span className="text-gray-400">({getOversString(inn.balls, match.ballsPerOver)} ov)</span></p>;
-        })}
-        {match.winner && <p className="font-display font-black text-2xl mt-4" style={{ color: '#c62828' }}>{match.winner} won by {match.winMargin}</p>}
-      </div>
-      <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, rgba(200,180,140,0.3), rgba(200,180,140,0.8), rgba(200,180,140,0.3))' }} />
-    </div>
-  );
+  const MatchSummary = () => <MatchSummaryCard match={match} theme="light" />;
 
   // ===== RENDER =====
   const isBottomAligned = display.mode === 'default' || display.mode === 'score';
