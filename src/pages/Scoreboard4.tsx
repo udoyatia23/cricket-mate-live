@@ -1,0 +1,630 @@
+import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
+import BoundaryAlert from '@/components/BoundaryAlert';
+import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
+import { useParams } from 'react-router-dom';
+import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
+import { getMatch } from '@/lib/store';
+import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
+import { supabase } from '@/integrations/supabase/client';
+import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
+
+// ErrorBoundary
+class Scoreboard4ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[Scoreboard4] ErrorBoundary caught:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-screen bg-transparent flex items-center justify-center">
+          <div className="text-white/60 text-sm font-mono text-center p-4">
+            <p>Scoreboard recovering...</p>
+            <button onClick={() => this.setState({ hasError: false })} className="mt-2 px-3 py-1 bg-white/10 rounded text-xs">Retry</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const Scoreboard4Inner = () => {
+  const { id } = useParams<{ id: string }>();
+  const [snapshot, setSnapshot] = useState<ScoreboardSnapshot | null>(null);
+  const [match, setMatch] = useState<Match | null>(null);
+  const [display, setDisplay] = useState<DisplayState>({ mode: 'default', overlay: 'none', timestamp: 0 });
+  const vsAnimDone = useRef(false);
+  const [vsAnimIn, setVsAnimIn] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>('connecting');
+  const lastPayloadTs = useRef<number>(0);
+
+  // === REALTIME SYNC ===
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+
+    const loadMatch = async () => {
+      try {
+        const m = await getMatch(id);
+        if (mounted && m) setMatch(m);
+      } catch (e) { console.error('[Scoreboard4] Failed to load match:', e); }
+    };
+
+    const loadSnapshot = async () => {
+      try {
+        const { data } = await (supabase.from('score_live') as any).select('snapshot').eq('match_id', id).maybeSingle();
+        if (data?.snapshot && mounted) {
+          const snap = data.snapshot as ScoreboardSnapshot;
+          setSnapshot(snap);
+          if (snap.overlay && snap.overlay !== 'none') setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+          lastPayloadTs.current = snap.ts || Date.now();
+        }
+      } catch (e) { console.error('[Scoreboard4] score_live fetch failed:', e); }
+    };
+
+    const loadDisplay = async () => {
+      try {
+        const ds = await getDisplayState(id);
+        if (mounted) setDisplay(ds);
+      } catch (e) { console.error(e); }
+    };
+
+    loadMatch(); loadSnapshot(); loadDisplay();
+
+    const applySnapshot = (snap: ScoreboardSnapshot) => {
+      lastPayloadTs.current = Date.now();
+      setSnapshot(snap);
+      if (snap.displayMode) {
+        setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: snap.overlay && snap.overlay !== 'none' ? snap.overlay : prev.overlay }));
+      } else if (snap.overlay && snap.overlay !== 'none') {
+        setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+      }
+      if (snap.displayCustomText) {
+        setDisplay(prev => ({ ...prev, customText: snap.displayCustomText }));
+      }
+      if (snap.displayMomPlayer) {
+        setDisplay(prev => ({ ...prev, momPlayer: snap.displayMomPlayer }));
+      }
+    };
+
+    const scoreLiveCh = supabase.channel(`score-live4-${id}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'score_live', filter: `match_id=eq.${id}` }, (payload) => {
+        if (!mounted) return;
+        const row = payload.new as any;
+        if (row?.snapshot) applySnapshot(row.snapshot as ScoreboardSnapshot);
+      })
+      .subscribe((status) => { if (mounted) setConnectionStatus(status); });
+
+    const broadcastCh = supabase.channel(`broadcast-${id}`)
+      .on('broadcast', { event: 'match_update' }, (payload) => {
+        if (!mounted) return;
+        const data = payload.payload;
+        if (data?.snapshot) { applySnapshot(data.snapshot as ScoreboardSnapshot); return; }
+        if (data?.display_state) setDisplay(prev => ({ ...prev, ...data.display_state }));
+      }).subscribe();
+
+    const pgCh = supabase.channel(`pg4-${id}-${Date.now()}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${id}` }, (payload) => {
+        if (!mounted) return;
+        const row = payload.new as any;
+        if (row?.display_state) setDisplay(row.display_state as DisplayState);
+        if (row?.match_data && Date.now() - lastPayloadTs.current > 5000) setMatch({ ...row.match_data, id } as unknown as Match);
+      }).subscribe();
+
+    return () => { mounted = false; supabase.removeChannel(scoreLiveCh); supabase.removeChannel(broadcastCh); supabase.removeChannel(pgCh); };
+  }, [id]);
+
+  useEffect(() => {
+    if (display.mode === 'vs' && !vsAnimDone.current) {
+      const t = setTimeout(() => { setVsAnimIn(true); vsAnimDone.current = true; }, 50);
+      return () => clearTimeout(t);
+    }
+    if (display.mode !== 'vs') { vsAnimDone.current = false; setVsAnimIn(false); }
+  }, [display.mode]);
+
+  // === LOADING ===
+  if (!match && !snapshot) {
+    return (
+      <div className="w-full min-h-screen bg-transparent flex items-end justify-center p-0">
+        <div className="w-full">
+          <div className="relative flex items-center justify-center" style={{ height: '80px', background: 'linear-gradient(180deg, #1a4a1a 0%, #0d2e0d 100%)' }}>
+            <span className="text-white/40 text-sm font-mono animate-pulse">{connectionStatus === 'SUBSCRIBED' ? 'Waiting for controller...' : 'Connecting...'}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!match) return <div className="w-full h-screen bg-transparent" />;
+
+  // === DATA ===
+  const s = snapshot;
+  const currentInnings = match.currentInningsIndex >= 0 ? match.innings[match.currentInningsIndex] : null;
+  const battingTeam = currentInnings ? (currentInnings.battingTeamIndex === 0 ? match.team1 : match.team2) : null;
+  const bowlingTeam = currentInnings ? (currentInnings.bowlingTeamIndex === 0 ? match.team1 : match.team2) : null;
+  const strikerData = s?.s || null;
+  const nonStrikerData = s?.ns || null;
+  const bowlerData = s?.b || null;
+  const displayRuns = s ? s.inn.runs : 0;
+  const displayWickets = s ? s.inn.wickets : 0;
+  const displayBalls = s ? s.inn.balls : 0;
+  const target = s ? (s.inIdx === 1 && s.inn1Runs !== undefined ? s.inn1Runs + 1 : null) : null;
+  const t1Color = (s?.t1.color || match.team1.color || '#1b5e20');
+  const t2Color = (s?.t2.color || match.team2.color || '#1565c0');
+  const currentOverBalls = s?.ov || [];
+  const bpo = s?.bpo || match.ballsPerOver;
+
+  const batTeamName = s
+    ? (s.inn.batIdx === 0 ? s.t1.name : s.t2.name)
+    : (battingTeam || match.team1).name;
+  const bowlTeamName = s
+    ? (s.inn.batIdx === 0 ? s.t2.name : s.t1.name)
+    : (bowlingTeam || match.team2).name;
+  const batColor = s ? (s.inn.batIdx === 0 ? t1Color : t2Color) : t1Color;
+  const bowlColor = s ? (s.inn.batIdx === 0 ? t2Color : t1Color) : t2Color;
+
+  const batTeamObj = s?.inn.batIdx === 0 ? match.team1 : match.team2;
+  const bowlTeamObj = s?.inn.batIdx === 0 ? match.team2 : match.team1;
+
+  const need = target ? Math.max(0, target - displayRuns) : null;
+  const remainBalls = (match.overs * match.ballsPerOver - displayBalls);
+
+  // Toss info
+  const tossTeamName = match.tossWonBy === 0 ? match.team1.name : match.team2.name;
+  const matchTitle = s?.matchType ? s.matchType.toUpperCase() : match.matchType?.toUpperCase() || 'MATCH';
+  const venue = s?.venue || '';
+
+  // ===========================
+  // BALL TRACKER (reference style)
+  // ===========================
+  const BallDot = ({ event }: { event: BallEvent }) => {
+    let bg = '#2d2d2d';
+    let border = '#555';
+    let text = String(event.runs);
+    let textColor = '#fff';
+    let isSquare = false;
+
+    if (event.isWicket) {
+      bg = '#c62828'; border = '#c62828'; text = 'W'; textColor = '#fff';
+    } else if (event.runs === 6) {
+      bg = '#1b5e20'; border = '#2e7d32'; textColor = '#fff';
+    } else if (event.runs === 4) {
+      bg = '#e65100'; border = '#bf360c'; textColor = '#fff'; isSquare = true;
+    } else if (event.runs === 0) {
+      bg = '#fdd835'; border = '#f9a825'; textColor = '#111';
+    } else if (event.type === 'wide') {
+      bg = '#6d4c41'; border = '#795548'; text = 'Wd'; textColor = '#ffcc02';
+    } else if (event.type === 'noBall') {
+      bg = '#6d4c41'; border = '#795548'; text = 'Nb'; textColor = '#ffcc02';
+    } else {
+      bg = '#333'; border = '#555'; textColor = '#fff';
+    }
+
+    return (
+      <div
+        className="flex items-center justify-center text-[10px] font-black flex-shrink-0"
+        style={{
+          width: '22px', height: '22px',
+          backgroundColor: bg,
+          border: `2px solid ${border}`,
+          borderRadius: isSquare ? '3px' : '50%',
+          color: textColor,
+          fontFamily: 'Oswald, sans-serif',
+        }}
+      >
+        {text}
+      </div>
+    );
+  };
+
+  const EmptyDot = () => (
+    <div
+      className="flex items-center justify-center flex-shrink-0"
+      style={{ width: '22px', height: '22px', backgroundColor: '#3a3a3a', border: '2px solid #555', borderRadius: '50%' }}
+    />
+  );
+
+  // ===========================
+  // TEAM LOGO / BADGE
+  // ===========================
+  const TeamBadge = ({ team, size = 44 }: { team: typeof match.team1; size?: number }) => (
+    <div className="flex items-center justify-center flex-shrink-0" style={{ width: size + 8, height: size + 8 }}>
+      {team.logo ? (
+        <img src={team.logo} alt={team.name} className="object-contain drop-shadow-lg" style={{ width: size, height: size }} />
+      ) : (
+        <div
+          className="font-display font-black text-white flex items-center justify-center rounded-full border-2"
+          style={{ width: size, height: size, fontSize: size * 0.32, borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)' }}
+        >
+          {team.name.slice(0, 3).toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+
+  // ===========================
+  // OVERLAY DATA
+  // ===========================
+  const getOverlayData = () => {
+    if (display.overlay === 'none') return null;
+    const c: Record<AnimationOverlay, { text: string; color: string }> = {
+      none: { text: '', color: '' },
+      four: { text: 'FOUR!', color: '#e65100' },
+      six: { text: 'SIX!', color: '#1b5e20' },
+      wicket: { text: 'WICKET!', color: '#c62828' },
+      free_hit: { text: 'FREE HIT', color: '#ff9800' },
+      hat_trick: { text: 'HAT-TRICK!', color: '#880e4f' },
+      out: { text: 'OUT!', color: '#b71c1c' },
+      not_out: { text: 'NOT OUT!', color: '#1b5e20' },
+    };
+    return c[display.overlay];
+  };
+  const overlayData = getOverlayData();
+
+  // ===========================
+  // DEFAULT SCORE BAR - Bangladesh broadcast style
+  // Two rows: top = teams + score | bottom = batsmen + bowler
+  // Dark forest green base, gold/red accents
+  // ===========================
+  const DefaultScoreBar = () => {
+    // Deep forest green base
+    const GREEN_DARK = '#0d3b0d';
+    const GREEN_MID = '#155215';
+    const GREEN_LIGHT = '#1e6b1e';
+    const GOLD = '#fdd835';
+    const RED_DARK = '#7b1a1a';
+
+    return (
+      <div className="w-full" style={{ fontFamily: 'Oswald, system-ui, sans-serif' }}>
+        {/* Gold top accent line */}
+        <div style={{ height: '3px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD} 30%, ${GOLD} 70%, ${GREEN_DARK})` }} />
+
+        {/* ── TOP ROW ── */}
+        <div className="relative flex items-stretch w-full" style={{ height: '44px', background: `linear-gradient(180deg, ${GREEN_LIGHT} 0%, ${GREEN_DARK} 100%)` }}>
+
+          {/* Left chevron decoration */}
+          <div className="absolute left-0 top-0 bottom-0 flex items-center z-10" style={{ width: '20px' }}>
+            <div style={{ width: 0, height: 0, borderTop: '22px solid transparent', borderBottom: '22px solid transparent', borderLeft: `14px solid ${GREEN_MID}`, opacity: 0.6 }} />
+          </div>
+
+          {/* BATTING TEAM section */}
+          <div className="flex items-center gap-2 pl-6 pr-3 flex-shrink-0" style={{ minWidth: '220px', background: `linear-gradient(135deg, ${GREEN_LIGHT}, ${GREEN_MID})` }}>
+            <TeamBadge team={batTeamObj} size={34} />
+            <span className="font-display font-black text-white text-base md:text-lg uppercase tracking-wider truncate">
+              {batTeamName}
+            </span>
+            {/* Match phase pill (P1/P2) */}
+            <div className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-black"
+              style={{ background: GOLD, color: '#111', fontFamily: 'Oswald, sans-serif' }}>
+              P{(s?.inIdx ?? match.currentInningsIndex) + 1}
+            </div>
+          </div>
+
+          {/* SCORE block - highlighted center */}
+          <div className="flex items-center justify-center px-4 flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${RED_DARK}, #a52a2a)`, minWidth: '100px' }}>
+            <span className="font-display font-black text-white tabular-nums"
+              style={{ fontSize: '26px', letterSpacing: '0.02em', lineHeight: 1 }}>
+              {displayRuns}-{displayWickets}
+            </span>
+          </div>
+
+          {/* OVERS block */}
+          <div className="flex items-center justify-center px-3 flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${GREEN_MID}, ${GREEN_DARK})`, minWidth: '56px' }}>
+            <span className="font-display font-bold text-white tabular-nums text-base md:text-lg">
+              {getOversString(displayBalls, bpo)}
+            </span>
+          </div>
+
+          {/* Separator */}
+          <div className="flex-shrink-0 self-stretch" style={{ width: '2px', background: `linear-gradient(180deg, transparent, ${GOLD}80, transparent)` }} />
+
+          {/* BOWLING TEAM section */}
+          <div className="flex items-center gap-2 px-3 flex-shrink-0" style={{ minWidth: '200px', background: `linear-gradient(135deg, ${GREEN_MID}, ${GREEN_LIGHT})` }}>
+            <span className="font-display font-black text-white text-base md:text-lg uppercase tracking-wider truncate">
+              {bowlTeamName}
+            </span>
+            <TeamBadge team={bowlTeamObj} size={34} />
+          </div>
+
+          {/* Separator */}
+          <div className="flex-shrink-0 self-stretch" style={{ width: '2px', background: `linear-gradient(180deg, transparent, ${GOLD}80, transparent)` }} />
+
+          {/* TOSS / TARGET / MATCH INFO section */}
+          <div className="flex flex-col items-center justify-center px-4 flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${GREEN_LIGHT}, ${GREEN_MID})`, minWidth: '120px' }}>
+            {overlayData ? (
+              <span className="font-display font-black text-white text-sm tracking-wider" style={{ color: overlayData.color }}>{overlayData.text}</span>
+            ) : need !== null && need > 0 && remainBalls > 0 ? (
+              <>
+                <span className="text-white/60 text-[9px] font-display tracking-widest">NEED</span>
+                <span className="font-display font-black text-yellow-300 text-base tabular-nums leading-tight">{need} off {remainBalls}b</span>
+              </>
+            ) : (s?.status || match.status) === 'finished' && (s?.winner || match.winner) ? (
+              <span className="font-display font-black text-yellow-300 text-[11px] uppercase tracking-wider text-center leading-tight">{(s?.winner || match.winner)?.split(' ').slice(0, 2).join(' ')} WON</span>
+            ) : (
+              <>
+                <span className="text-white/60 text-[9px] font-display tracking-widest">TOSS</span>
+                <span className="font-display font-bold text-white text-[11px] uppercase tracking-wide text-center leading-tight">{tossTeamName.split(' ')[0]}</span>
+              </>
+            )}
+          </div>
+
+          {/* Separator */}
+          <div className="flex-shrink-0 self-stretch" style={{ width: '2px', background: `linear-gradient(180deg, transparent, ${GOLD}80, transparent)` }} />
+
+          {/* MATCH TITLE / VENUE */}
+          <div className="flex items-center justify-center flex-1 px-4"
+            style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN_MID})` }}>
+            <span className="font-display font-bold text-white uppercase tracking-widest text-center"
+              style={{ fontSize: '13px', opacity: 0.9 }}>
+              {venue ? venue.toUpperCase() : matchTitle}
+            </span>
+          </div>
+
+          {/* Right chevron decoration */}
+          <div className="absolute right-0 top-0 bottom-0 flex items-center z-10" style={{ width: '20px' }}>
+            <div style={{ width: 0, height: 0, borderTop: '22px solid transparent', borderBottom: '22px solid transparent', borderRight: `14px solid ${GREEN_MID}`, opacity: 0.6 }} />
+          </div>
+        </div>
+
+        {/* Gold divider line */}
+        <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD} 30%, ${GOLD} 70%, ${GREEN_DARK})` }} />
+
+        {/* ── BOTTOM ROW ── */}
+        <div className="relative flex items-stretch w-full" style={{ height: '36px', background: `linear-gradient(180deg, #0a2a0a 0%, #071a07 100%)` }}>
+
+          {/* BATSMEN section */}
+          <div className="flex items-center gap-3 pl-6 pr-4 flex-1 min-w-0"
+            style={{ borderRight: `2px solid ${GOLD}50` }}>
+            {/* Striker */}
+            {strikerData && (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span style={{ color: GOLD, fontSize: '10px', fontWeight: 900 }}>▶</span>
+                <span className="font-display font-bold text-white uppercase tracking-wide"
+                  style={{ fontSize: '13px' }}>{strikerData.name.split(' ').slice(-1)[0]}</span>
+                <span className="font-display font-black text-white tabular-nums" style={{ fontSize: '15px' }}>{strikerData.runs}</span>
+                <span className="font-display text-white/50 tabular-nums" style={{ fontSize: '11px' }}>{strikerData.bf}</span>
+              </div>
+            )}
+            {/* Non-striker */}
+            {nonStrikerData && (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span style={{ color: 'transparent', fontSize: '10px' }}>▶</span>
+                <span className="font-display font-bold text-white/70 uppercase tracking-wide"
+                  style={{ fontSize: '13px' }}>{nonStrikerData.name.split(' ').slice(-1)[0]}</span>
+                <span className="font-display font-bold text-white/80 tabular-nums" style={{ fontSize: '14px' }}>{nonStrikerData.runs}</span>
+                <span className="font-display text-white/40 tabular-nums" style={{ fontSize: '11px' }}>{nonStrikerData.bf}</span>
+              </div>
+            )}
+          </div>
+
+          {/* BOWLER section */}
+          {bowlerData && (
+            <div className="flex items-center gap-1.5 px-4 flex-shrink-0"
+              style={{ borderRight: `2px solid ${GOLD}50` }}>
+              <span className="font-display font-bold text-white/70 uppercase tracking-wide"
+                style={{ fontSize: '13px' }}>{bowlerData.name.split(' ').slice(-1)[0]}</span>
+              <span className="font-display font-bold text-white tabular-nums" style={{ fontSize: '13px' }}>
+                {bowlerData.w}-{bowlerData.r}
+              </span>
+              <span className="font-display text-white/50 tabular-nums" style={{ fontSize: '11px' }}>
+                {getOversString(bowlerData.balls, bpo)}
+              </span>
+            </div>
+          )}
+
+          {/* THIS OVER section */}
+          <div className="flex items-center gap-2 px-4 flex-shrink-0">
+            <span className="font-display font-bold text-white/70 uppercase tracking-widest" style={{ fontSize: '10px' }}>THIS OVER</span>
+            <div className="flex items-center gap-1">
+              {currentOverBalls.map((e, i) => <BallDot key={i} event={e} />)}
+              {Array.from({ length: Math.max(0, bpo - currentOverBalls.length) }).map((_, i) => (
+                <EmptyDot key={`e-${i}`} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom gold line */}
+        <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD} 30%, ${GOLD} 70%, ${GREEN_DARK})` }} />
+      </div>
+    );
+  };
+
+  // ===========================
+  // VS BANNER
+  // ===========================
+  const VSBanner = () => {
+    const GREEN_DARK = '#0d3b0d';
+    const GREEN_MID = '#155215';
+    const GOLD = '#fdd835';
+    return (
+      <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
+        <div className="relative flex items-stretch" style={{ height: '80px', background: `linear-gradient(180deg, ${GREEN_MID} 0%, ${GREEN_DARK} 100%)` }}>
+          {/* Team 1 */}
+          <div className={`flex items-center gap-3 flex-1 px-6 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}
+            style={{ background: `linear-gradient(135deg, ${t1Color}cc, ${t1Color}44)` }}>
+            <TeamBadge team={match.team1} size={48} />
+            <span className="font-display font-black text-white text-xl md:text-2xl uppercase tracking-wider">{match.team1.name}</span>
+          </div>
+          {/* VS center */}
+          <div className="flex flex-col items-center justify-center px-6 flex-shrink-0"
+            style={{ background: `linear-gradient(180deg, #1a1a0a, #0d0d05)` }}>
+            <span className="font-display font-black uppercase tracking-widest" style={{ fontSize: '24px', color: GOLD }}>VS</span>
+            <span className="font-display text-white/50 text-[10px] uppercase tracking-widest mt-0.5">{matchTitle}</span>
+          </div>
+          {/* Team 2 */}
+          <div className={`flex items-center gap-3 flex-1 justify-end px-6 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}
+            style={{ background: `linear-gradient(225deg, ${t2Color}cc, ${t2Color}44)` }}>
+            <span className="font-display font-black text-white text-xl md:text-2xl uppercase tracking-wider">{match.team2.name}</span>
+            <TeamBadge team={match.team2} size={48} />
+          </div>
+        </div>
+        <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
+      </div>
+    );
+  };
+
+  // ===========================
+  // SUMMARY & INFO MODES (centered card)
+  // ===========================
+  const InfoCard = ({ title, children }: { title: string; children: ReactNode }) => (
+    <div className="w-full flex items-center justify-center">
+      <div className="rounded-lg overflow-hidden shadow-2xl" style={{
+        background: 'linear-gradient(180deg, #0d3b0d 0%, #071a07 100%)',
+        border: '2px solid #fdd83550',
+        minWidth: '340px', maxWidth: '600px', width: '100%',
+      }}>
+        <div className="px-4 py-2 text-center font-display font-black text-xs uppercase tracking-widest"
+          style={{ background: 'linear-gradient(90deg, #0d3b0d, #fdd835, #0d3b0d)', color: '#111' }}>
+          {title}
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+
+  const renderInfoMode = () => {
+    const inningsData = match.innings[match.currentInningsIndex] || match.innings[0];
+    const batT = inningsData?.battingTeamIndex === 0 ? match.team1 : match.team2;
+    const allBatsmen = batT?.players || [];
+
+    switch (display.mode) {
+      case 'summary': {
+        const batted = allBatsmen.filter(p => p.ballsFaced > 0 || p.isOut);
+        return (
+          <InfoCard title={`${batT?.name || ''} — Batting Summary`}>
+            <div className="space-y-1">
+              {batted.map(p => (
+                <div key={p.id} className="flex items-center gap-2 text-white text-[12px] font-display">
+                  <span className="flex-1 font-bold uppercase truncate">{p.name}</span>
+                  <span className="font-black text-base">{p.runs}</span>
+                  <span className="text-white/50 text-[11px]">({p.ballsFaced})</span>
+                  {p.isOut && <span className="text-red-400 text-[10px]">{p.dismissalType || 'out'}</span>}
+                </div>
+              ))}
+              {batted.length === 0 && <p className="text-white/50 text-sm text-center">No batsmen yet</p>}
+            </div>
+          </InfoCard>
+        );
+      }
+      case 'partnership': {
+        const strikerP = inningsData?.currentStrikerId ? batT?.players.find(p => p.id === inningsData.currentStrikerId) : null;
+        const nonStrikerP = inningsData?.currentNonStrikerId ? batT?.players.find(p => p.id === inningsData.currentNonStrikerId) : null;
+        const partnershipRuns = (strikerP?.runs || 0) + (nonStrikerP?.runs || 0);
+        const partnershipBalls = (strikerP?.ballsFaced || 0) + (nonStrikerP?.ballsFaced || 0);
+        return (
+          <InfoCard title="Current Partnership">
+            <div className="flex items-center gap-6 justify-center">
+              <div className="text-center">
+                <p className="text-white/60 text-[10px] font-display tracking-widest">RUNS</p>
+                <p className="font-display font-black text-yellow-300 text-3xl tabular-nums">{partnershipRuns}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-white/60 text-[10px] font-display tracking-widest">BALLS</p>
+                <p className="font-display font-black text-white text-3xl tabular-nums">{partnershipBalls}</p>
+              </div>
+            </div>
+            <div className="flex justify-center gap-8 mt-3">
+              {strikerP && (
+                <div className="text-center">
+                  <p className="text-yellow-300 font-display font-bold text-sm uppercase">{strikerP.name}</p>
+                  <p className="text-white font-display font-black text-xl">{strikerP.runs} <span className="text-white/50 text-sm">({strikerP.ballsFaced})</span></p>
+                </div>
+              )}
+              {nonStrikerP && (
+                <div className="text-center">
+                  <p className="text-white/70 font-display font-bold text-sm uppercase">{nonStrikerP.name}</p>
+                  <p className="text-white font-display font-black text-xl">{nonStrikerP.runs} <span className="text-white/50 text-sm">({nonStrikerP.ballsFaced})</span></p>
+                </div>
+              )}
+            </div>
+          </InfoCard>
+        );
+      }
+      case 'fow': {
+        const wickets = (inningsData?.events || []).filter(e => e.isWicket);
+        return (
+          <InfoCard title="Fall of Wickets">
+            <div className="space-y-1">
+              {wickets.length === 0 ? (
+                <p className="text-white/50 text-sm text-center">No wickets yet</p>
+              ) : wickets.map((w, i) => (
+                <div key={i} className="flex items-center gap-3 text-white font-display text-[12px]">
+                  <span className="text-white/40 text-[11px]">{i + 1}.</span>
+                  <span className="font-bold uppercase flex-1">{w.wicketType || 'out'}</span>
+                </div>
+              ))}
+            </div>
+          </InfoCard>
+        );
+      }
+      case 'target': {
+        return (
+          <InfoCard title="Target">
+            <div className="text-center">
+              <p className="font-display font-black text-yellow-300 text-5xl tabular-nums">{target || '—'}</p>
+              {need !== null && need > 0 && (
+                <p className="text-white/70 font-display text-sm mt-2">Need {need} from {remainBalls} balls</p>
+              )}
+            </div>
+          </InfoCard>
+        );
+      }
+      default: return null;
+    }
+  };
+
+  // ===========================
+  // RENDER
+  // ===========================
+  const isDefaultMode = display.mode === 'default' || display.mode === 'score';
+
+  return (
+    <div className="w-full min-h-screen bg-transparent relative flex flex-col justify-end">
+      {/* Info modes - centered vertically */}
+      {!isDefaultMode && display.mode !== 'vs' && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 p-4">
+          {renderInfoMode()}
+        </div>
+      )}
+
+      {/* VS Banner */}
+      {display.mode === 'vs' && (
+        <div className="absolute bottom-[84px] left-0 right-0 z-20">
+          <VSBanner />
+        </div>
+      )}
+
+      {/* Bottom scorebar */}
+      {isDefaultMode && (
+        <div className="w-full z-10">
+          <DefaultScoreBar />
+        </div>
+      )}
+
+      {/* Broadcast overlay banner (FOUR / SIX / WICKET) */}
+      <BroadcastOverlayBanner
+        overlay={display.overlay}
+        onHide={() => setDisplay(prev => ({ ...prev, overlay: 'none' }))}
+      />
+      {/* Boundary alert (Total 4 / Total 6 card) */}
+      <BoundaryAlert snapshot={snapshot} variant="dark" barHeight={82} />
+    </div>
+  );
+};
+
+export default function Scoreboard4() {
+  return (
+    <Scoreboard4ErrorBoundary>
+      <Scoreboard4Inner />
+    </Scoreboard4ErrorBoundary>
+  );
+}
