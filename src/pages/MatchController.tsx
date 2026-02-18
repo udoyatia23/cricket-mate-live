@@ -44,10 +44,9 @@ const MatchController = () => {
   const [newBatsmanName, setNewBatsmanName] = useState('');
   const [needsBowlerAfterWicket, setNeedsBowlerAfterWicket] = useState(false);
   const scoringLock = useRef(false);
-  // Boundary tracking for auto-popup (triggers every 3 overs if boundary was hit)
+  // Boundary count tracking (for manual button display only - no auto-trigger)
   const lastFoursCount = useRef(-1);
   const lastSixesCount = useRef(-1);
-  const lastMilestoneOver = useRef(-1); // last 3-over milestone that triggered alert
 
   useEffect(() => {
     if (id) {
@@ -204,34 +203,14 @@ const MatchController = () => {
     pendingOverlay.current = null;
 
     // Boundary alert: triggers once per 3-over block if a boundary was hit in that block
+    // No auto-trigger boundary alert - only manual buttons trigger it
     const { fours, sixes } = countBoundaries(deep);
-    let boundaryAlert: 'fours' | 'sixes' | undefined;
-
-    // Initialize refs on first save (don't trigger alert on load)
     if (lastFoursCount.current === -1) lastFoursCount.current = fours;
     if (lastSixesCount.current === -1) lastSixesCount.current = sixes;
-
-    const inn = deep.innings[deep.currentInningsIndex];
-    if (inn) {
-      const bpo = deep.ballsPerOver || 6;
-      const completedOvers = Math.floor(inn.balls / bpo);
-      // Which 3-over block are we in? (0=overs 1-3, 1=overs 4-6, etc.)
-      const currentBlock = Math.floor(completedOvers / 3);
-
-      const foursIncreased = fours > lastFoursCount.current;
-      const sixesIncreased = sixes > lastSixesCount.current;
-
-      // Trigger if: boundary just hit AND this block hasn't shown an alert yet AND block > 0
-      if ((foursIncreased || sixesIncreased) && currentBlock > lastMilestoneOver.current && currentBlock > 0) {
-        boundaryAlert = sixesIncreased ? 'sixes' : 'fours';
-        lastMilestoneOver.current = currentBlock;
-      }
-    }
-
     lastFoursCount.current = fours;
     lastSixesCount.current = sixes;
 
-    const snapshot = createSnapshot(deep, overlay || undefined, boundaryAlert);
+    const snapshot = createSnapshot(deep, overlay || undefined, undefined);
     snapshot.displayMode = activeDisplay;
 
     // 1. INSTANT: Broadcast via WebSocket (fastest, no DB involved)
