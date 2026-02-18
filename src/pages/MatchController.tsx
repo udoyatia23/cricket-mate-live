@@ -36,6 +36,18 @@ const MatchController = () => {
   const [wicketType, setWicketType] = useState('');
   const [newBatterDialogOpen, setNewBatterDialogOpen] = useState(false);
   const [newBatterName, setNewBatterName] = useState('');
+  // Toss result dialog
+  const [tossDialogOpen, setTossDialogOpen] = useState(false);
+  const [tossCoinSide, setTossCoinSide] = useState<'heads' | 'tails' | null>(null);
+  const [tossWinnerIdx, setTossWinnerIdx] = useState<0 | 1>(0);
+  const [tossOptedTo, setTossOptedTo] = useState<'bat' | 'bowl'>('bat');
+  // Edit match dialog
+  const [editMatchOpen, setEditMatchOpen] = useState(false);
+  const [editTeam1Name, setEditTeam1Name] = useState('');
+  const [editTeam2Name, setEditTeam2Name] = useState('');
+  const [editTossWonBy, setEditTossWonBy] = useState<'0' | '1'>('0');
+  const [editOptedTo, setEditOptedTo] = useState<'bat' | 'bowl'>('bat');
+  const [editMatchType, setEditMatchType] = useState('group');
   // Swap/Change dialogs
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
   const [retireDialogOpen, setRetireDialogOpen] = useState(false);
@@ -1060,6 +1072,36 @@ const MatchController = () => {
           </div>
         </div>
 
+        {/* Toss Result + Edit Match buttons */}
+        <div className="flex gap-3 justify-center mb-4 flex-wrap">
+          <button
+            onClick={() => {
+              setTossWinnerIdx(match.tossWonBy as 0 | 1);
+              setTossOptedTo(match.optedTo);
+              setTossCoinSide(null);
+              setTossDialogOpen(true);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-95 hover:brightness-110"
+            style={{ background: 'linear-gradient(135deg, #b8860b, #ffd700, #b8860b)', border: '2px solid #ffd700', boxShadow: '0 0 16px rgba(255,215,0,0.5)', color: '#000' }}
+          >
+            🪙 TOSS RESULT
+          </button>
+          <button
+            onClick={() => {
+              setEditTeam1Name(match.team1.name);
+              setEditTeam2Name(match.team2.name);
+              setEditTossWonBy(String(match.tossWonBy) as '0' | '1');
+              setEditOptedTo(match.optedTo);
+              setEditMatchType(match.matchType);
+              setEditMatchOpen(true);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-95 hover:brightness-110"
+            style={{ background: 'linear-gradient(135deg, #1a237e, #283593)', border: '2px solid #5c6bc0', boxShadow: '0 0 12px rgba(63,81,181,0.4)' }}
+          >
+            ✏️ EDIT MATCH
+          </button>
+        </div>
+
         {/* Animations */}
         <Section>
           <h3 className="font-display text-center font-bold mb-3">Animations</h3>
@@ -1324,13 +1366,11 @@ const MatchController = () => {
                   const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
                   let p = bt.players.find(pl => pl.name.toLowerCase() === newBatterName.trim().toLowerCase());
                   if (!p) { p = createPlayer(newBatterName.trim()); bt.players.push(p); }
-                  // Fill whichever is empty
                   if (!inn.currentStrikerId) inn.currentStrikerId = p.id;
                   else if (!inn.currentNonStrikerId) inn.currentNonStrikerId = p.id;
                   save(updated);
                   setNewBatterName('');
                   setNewBatterDialogOpen(false);
-                  // If last ball of over caused this wicket, also need bowler
                   if (needsBowlerAfterWicket) {
                     setNeedsBowlerAfterWicket(false);
                     setNewBowlerName('');
@@ -1342,6 +1382,248 @@ const MatchController = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Toss Result Dialog */}
+        <Dialog open={tossDialogOpen} onOpenChange={setTossDialogOpen}>
+          <DialogContent className="border-none max-w-sm p-0 overflow-hidden">
+            <div style={{ background: 'linear-gradient(160deg, #0a1628 0%, #1a2f4a 50%, #0d2b3e 100%)' }} className="p-6">
+              <DialogHeader>
+                <DialogTitle className="text-center text-2xl font-display font-bold" style={{ color: '#ffd700' }}>
+                  🪙 TOSS RESULT
+                </DialogTitle>
+              </DialogHeader>
+
+              {/* Coin Visual */}
+              <div className="flex justify-center my-6">
+                <div className="relative w-32 h-32 rounded-full flex items-center justify-center"
+                  style={{
+                    background: tossCoinSide === null
+                      ? 'radial-gradient(circle at 35% 35%, #ffd700, #b8860b 60%, #8b6914)'
+                      : tossCoinSide === 'heads'
+                      ? 'radial-gradient(circle at 35% 35%, #90ee90, #228b22 60%, #145214)'
+                      : 'radial-gradient(circle at 35% 35%, #87ceeb, #1565c0 60%, #0d3b6e)',
+                    boxShadow: '0 0 30px rgba(255,215,0,0.6), inset 0 0 20px rgba(0,0,0,0.3)',
+                    border: '4px solid #ffd700',
+                  }}
+                >
+                  <span className="text-5xl font-bold" style={{ color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
+                    {tossCoinSide === null ? '🪙' : tossCoinSide === 'heads' ? 'H' : 'T'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Heads / Tails Selection */}
+              <p className="text-center text-sm mb-3" style={{ color: '#94a3b8' }}>Select coin result:</p>
+              <div className="flex gap-3 justify-center mb-5">
+                <button
+                  onClick={() => setTossCoinSide('heads')}
+                  className="flex-1 py-3 rounded-xl font-bold text-lg transition-all active:scale-95"
+                  style={{
+                    background: tossCoinSide === 'heads' ? 'linear-gradient(135deg, #228b22, #32cd32)' : 'rgba(255,255,255,0.08)',
+                    border: tossCoinSide === 'heads' ? '2px solid #32cd32' : '2px solid rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    boxShadow: tossCoinSide === 'heads' ? '0 0 16px rgba(50,205,50,0.5)' : 'none',
+                  }}
+                >
+                  HEADS
+                </button>
+                <button
+                  onClick={() => setTossCoinSide('tails')}
+                  className="flex-1 py-3 rounded-xl font-bold text-lg transition-all active:scale-95"
+                  style={{
+                    background: tossCoinSide === 'tails' ? 'linear-gradient(135deg, #1565c0, #2196f3)' : 'rgba(255,255,255,0.08)',
+                    border: tossCoinSide === 'tails' ? '2px solid #2196f3' : '2px solid rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    boxShadow: tossCoinSide === 'tails' ? '0 0 16px rgba(33,150,243,0.5)' : 'none',
+                  }}
+                >
+                  TAILS
+                </button>
+              </div>
+
+              {/* Toss Winner */}
+              <p className="text-center text-sm mb-2" style={{ color: '#94a3b8' }}>Toss won by:</p>
+              <div className="flex gap-3 justify-center mb-4">
+                {[match.team1, match.team2].map((team, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setTossWinnerIdx(idx as 0 | 1)}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95"
+                    style={{
+                      background: tossWinnerIdx === idx ? 'linear-gradient(135deg, #b8860b, #ffd700)' : 'rgba(255,255,255,0.08)',
+                      border: tossWinnerIdx === idx ? '2px solid #ffd700' : '2px solid rgba(255,255,255,0.2)',
+                      color: tossWinnerIdx === idx ? '#000' : '#fff',
+                      boxShadow: tossWinnerIdx === idx ? '0 0 16px rgba(255,215,0,0.5)' : 'none',
+                    }}
+                  >
+                    {team.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Opted To */}
+              <p className="text-center text-sm mb-2" style={{ color: '#94a3b8' }}>Opted to:</p>
+              <div className="flex gap-3 justify-center mb-5">
+                {(['bat', 'bowl'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    onClick={() => setTossOptedTo(opt)}
+                    className="flex-1 py-2.5 rounded-xl font-bold text-sm uppercase transition-all active:scale-95"
+                    style={{
+                      background: tossOptedTo === opt ? 'linear-gradient(135deg, #c62828, #ef5350)' : 'rgba(255,255,255,0.08)',
+                      border: tossOptedTo === opt ? '2px solid #ef5350' : '2px solid rgba(255,255,255,0.2)',
+                      color: '#fff',
+                      boxShadow: tossOptedTo === opt ? '0 0 12px rgba(239,83,80,0.5)' : 'none',
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Winner Banner */}
+              {tossCoinSide && (
+                <div className="rounded-xl p-3 mb-4 text-center" style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05))', border: '1px solid rgba(255,215,0,0.3)' }}>
+                  <p className="text-xs mb-1" style={{ color: '#94a3b8' }}>Result</p>
+                  <p className="font-bold text-lg" style={{ color: '#ffd700' }}>
+                    {[match.team1, match.team2][tossWinnerIdx].name} won the toss
+                  </p>
+                  <p className="text-sm mt-0.5" style={{ color: '#94a3b8' }}>
+                    ({tossCoinSide === 'heads' ? 'Heads' : 'Tails'}) — chose to {tossOptedTo}
+                  </p>
+                </div>
+              )}
+
+              {/* Save Button */}
+              <button
+                onClick={() => {
+                  if (!id) return;
+                  const updated = JSON.parse(JSON.stringify(match)) as Match;
+                  updated.tossWonBy = tossWinnerIdx;
+                  updated.optedTo = tossOptedTo;
+                  updateMatch(updated).then(() => {
+                    setMatch(updated);
+                    const snapshot = createSnapshot(updated);
+                    snapshot.tossWonBy = tossWinnerIdx;
+                    snapshot.optedTo = tossOptedTo;
+                    broadcastPayload({ snapshot });
+                    (supabase.from('score_live') as any).upsert(
+                      { match_id: id, snapshot, updated_at: new Date().toISOString() },
+                      { onConflict: 'match_id' }
+                    );
+                  });
+                  setTossDialogOpen(false);
+                }}
+                className="w-full py-3 rounded-xl font-bold text-base transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #b8860b, #ffd700)', color: '#000', boxShadow: '0 4px 20px rgba(255,215,0,0.4)' }}
+              >
+                💾 SAVE TOSS RESULT
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Match Dialog */}
+        <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
+          <DialogContent className="bg-card border-border max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display text-xl">✏️ Edit Match</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Team 1 Name</label>
+                  <Input value={editTeam1Name} onChange={e => setEditTeam1Name(e.target.value)} className="bg-secondary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Team 2 Name</label>
+                  <Input value={editTeam2Name} onChange={e => setEditTeam2Name(e.target.value)} className="bg-secondary" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Toss Won By</label>
+                <div className="flex gap-3">
+                  {(['0', '1'] as const).map(idx => (
+                    <button
+                      key={idx}
+                      onClick={() => setEditTossWonBy(idx)}
+                      className="flex-1 py-2 rounded-lg font-bold text-sm border-2 transition-all"
+                      style={{
+                        background: editTossWonBy === idx ? 'hsl(var(--primary))' : 'transparent',
+                        borderColor: editTossWonBy === idx ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                        color: editTossWonBy === idx ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+                      }}
+                    >
+                      {idx === '0' ? (editTeam1Name || match.team1.name) : (editTeam2Name || match.team2.name)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Opted To</label>
+                <div className="flex gap-3">
+                  {(['bat', 'bowl'] as const).map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setEditOptedTo(opt)}
+                      className="flex-1 py-2 rounded-lg font-bold text-sm uppercase border-2 transition-all"
+                      style={{
+                        background: editOptedTo === opt ? 'hsl(var(--primary))' : 'transparent',
+                        borderColor: editOptedTo === opt ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                        color: editOptedTo === opt ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+                      }}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Match Type</label>
+                <select
+                  value={editMatchType}
+                  onChange={e => setEditMatchType(e.target.value)}
+                  className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm"
+                >
+                  <option value="group">Group Stage</option>
+                  <option value="semi">Semi Final</option>
+                  <option value="final">Final</option>
+                  <option value="friendly">Friendly</option>
+                </select>
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <Button variant="outline" onClick={() => setEditMatchOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => {
+                    if (!editTeam1Name.trim() || !editTeam2Name.trim()) return;
+                    const updated = JSON.parse(JSON.stringify(match)) as Match;
+                    updated.team1.name = editTeam1Name.trim();
+                    updated.team2.name = editTeam2Name.trim();
+                    updated.tossWonBy = parseInt(editTossWonBy);
+                    updated.optedTo = editOptedTo;
+                    updated.matchType = editMatchType;
+                    updateMatch(updated).then(() => {
+                      setMatch(updated);
+                      if (id) {
+                        const snapshot = createSnapshot(updated);
+                        broadcastPayload({ snapshot });
+                        (supabase.from('score_live') as any).upsert(
+                          { match_id: id, snapshot, updated_at: new Date().toISOString() },
+                          { onConflict: 'match_id' }
+                        );
+                      }
+                    });
+                    setEditMatchOpen(false);
+                  }}
+                  className="bg-primary text-primary-foreground font-bold"
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </main>
     </div>
   );
