@@ -299,7 +299,9 @@ const MatchController = () => {
         if (error) console.error('score_live overlay upsert failed:', error);
       });
     }
-    if (overlay !== 'none') {
+    // 'out' and 'not_out' are Decision overlays - they stay until PENDING is pressed
+    // Other overlays (four, six, wicket, etc.) auto-clear after 6s
+    if (overlay !== 'none' && overlay !== 'out' && overlay !== 'not_out') {
       // 6s: banner shows for 5s + 1s buffer for exit animation
       setTimeout(() => {
         broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
@@ -1163,9 +1165,9 @@ const MatchController = () => {
         <Section>
           <div className="flex items-center gap-3 justify-center">
             <span className="font-display text-lg font-bold text-red-400">Decision :</span>
-            <ControlBtn label="PENDING" color="bg-gray-700 text-white" onClick={() => {}} />
-            <ControlBtn label="OUT" color="bg-red-600 text-white" onClick={() => sendOverlay('out')} />
-            <ControlBtn label="NOT OUT" color="bg-green-600 text-white" onClick={() => sendOverlay('not_out')} />
+            <ControlBtn label="PENDING" color="bg-gray-700 text-white" onClick={() => sendOverlayStandalone('none')} />
+            <ControlBtn label="OUT" color="bg-red-600 text-white" onClick={() => sendOverlayStandalone('out')} />
+            <ControlBtn label="NOT OUT" color="bg-green-600 text-white" onClick={() => sendOverlayStandalone('not_out')} />
           </div>
         </Section>
 

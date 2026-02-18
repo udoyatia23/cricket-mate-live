@@ -18,7 +18,7 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
   const animInTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    if (overlay === 'none' || !['four', 'six', 'wicket', 'free_hit', 'hat_trick'].includes(overlay)) {
+    if (overlay === 'none' || !['four', 'six', 'wicket', 'free_hit', 'hat_trick', 'out', 'not_out'].includes(overlay)) {
       // Trigger hide animation
       setAnimIn(false);
       const t = setTimeout(() => setVisible(false), 500);
@@ -36,14 +36,18 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
     // Slight delay for slide-up animation
     animInTimer.current = setTimeout(() => setAnimIn(true), 40);
 
-    // Auto-hide after 5 seconds
-    hideTimer.current = setTimeout(() => {
-      setAnimIn(false);
-      setTimeout(() => {
-        setVisible(false);
-        onHide?.();
-      }, 500);
-    }, 5000);
+    // Decision overlays (out/not_out) stay until PENDING clears them
+    // Other overlays auto-hide after 5 seconds
+    const isDecision = overlay === 'out' || overlay === 'not_out';
+    if (!isDecision) {
+      hideTimer.current = setTimeout(() => {
+        setAnimIn(false);
+        setTimeout(() => {
+          setVisible(false);
+          onHide?.();
+        }, 500);
+      }, 5000);
+    }
 
     return () => {
       if (animInTimer.current) clearTimeout(animInTimer.current);
@@ -121,6 +125,28 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
       borderColor: '#d4a017',
       glowColor: 'rgba(120,60,240,0.5)',
       scrollText: 'HAT TRICK',
+    },
+    out: {
+      label: 'OUT !',
+      bgGradient: 'linear-gradient(135deg, #7f0000 0%, #b71c1c 30%, #d32f2f 50%, #b71c1c 70%, #7f0000 100%)',
+      ghostColor: 'rgba(255,150,150,0.18)',
+      textColor: '#ffffff',
+      iconType: 'chevron',
+      iconColor: '#ff8a80',
+      borderColor: '#ff1744',
+      glowColor: 'rgba(200,0,0,0.6)',
+      scrollText: 'OUT',
+    },
+    not_out: {
+      label: 'NOT OUT !',
+      bgGradient: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 30%, #388e3c 50%, #2e7d32 70%, #1b5e20 100%)',
+      ghostColor: 'rgba(150,255,150,0.18)',
+      textColor: '#ffffff',
+      iconType: 'diamond',
+      iconColor: '#b9f6ca',
+      borderColor: '#00e676',
+      glowColor: 'rgba(0,200,60,0.6)',
+      scrollText: 'NOT OUT',
     },
   };
 
