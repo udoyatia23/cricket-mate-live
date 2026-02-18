@@ -580,10 +580,10 @@ const Scoreboard2Inner = () => {
 
   return (
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
-      <div className={isBottomAligned ? 'w-full' : 'w-full px-2 md:px-4'}>
+      <div className={isBottomAligned ? 'w-full relative' : 'w-full px-2 md:px-4'}>
         {renderContent()}
-        {isBottomAligned && <BoundaryAlert snapshot={snapshot} variant="light" />}
         {isBottomAligned && <ScoreboardTicker snapshot={snapshot} match={match} variant="light" />}
+        {isBottomAligned && <BoundaryAlert snapshot={snapshot} variant="light" barHeight={68} />}
       </div>
     </div>
   );
