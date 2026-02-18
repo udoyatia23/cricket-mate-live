@@ -49,6 +49,31 @@ const ScoreboardInner = () => {
   const lastPayloadTs = useRef<number>(0);
   const retryCount = useRef(0);
 
+  // Force transparent background for PRISM Live / OBS mobile WebViews
+  useEffect(() => {
+    document.documentElement.classList.add('scoreboard-page');
+    document.documentElement.style.setProperty('background', 'transparent', 'important');
+    document.documentElement.style.setProperty('background-color', 'transparent', 'important');
+    document.body.style.setProperty('background', 'transparent', 'important');
+    document.body.style.setProperty('background-color', 'transparent', 'important');
+    const root = document.getElementById('root');
+    if (root) {
+      root.style.setProperty('background', 'transparent', 'important');
+      root.style.setProperty('background-color', 'transparent', 'important');
+    }
+    return () => {
+      document.documentElement.classList.remove('scoreboard-page');
+      document.documentElement.style.removeProperty('background');
+      document.documentElement.style.removeProperty('background-color');
+      document.body.style.removeProperty('background');
+      document.body.style.removeProperty('background-color');
+      if (root) {
+        root.style.removeProperty('background');
+        root.style.removeProperty('background-color');
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!id) return;
     let mounted = true;

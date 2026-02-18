@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== SCOREBOARD TRANSPARENT MODE =====
+   Force full transparency for PRISM Live, OBS, and other mobile/desktop
+   broadcast software WebViews. Must override ALL possible background sources.
+===== */
+html.scoreboard-page,
+html.scoreboard-page body,
+html.scoreboard-page #root {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Chromium-based WebViews (PRISM Live, OBS CEF, etc.) */
+@media screen {
+  html.scoreboard-page {
+    -webkit-print-color-adjust: exact;
+    color-scheme: dark;
+  }
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
