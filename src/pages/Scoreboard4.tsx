@@ -247,6 +247,13 @@ const Scoreboard4Inner = () => {
   );
 
   // ===========================
+  // PLAYER DATA FROM MATCH (for summary modes)
+  // ===========================
+  const striker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentStrikerId) : null;
+  const nonStriker = currentInnings && battingTeam ? battingTeam.players.find(p => p.id === currentInnings.currentNonStrikerId) : null;
+  const bowler = currentInnings && bowlingTeam ? bowlingTeam.players.find(p => p.id === currentInnings.currentBowlerId) : null;
+
+  // ===========================
   // OVERLAY DATA
   // ===========================
   const getOverlayData = () => {
@@ -473,150 +480,272 @@ const Scoreboard4Inner = () => {
   };
 
   // ===========================
-  // SUMMARY & INFO MODES (centered card)
+  // SUMMARY & INFO MODES
   // ===========================
-  const InfoCard = ({ title, children }: { title: string; children: ReactNode }) => (
-    <div className="w-full flex items-center justify-center">
-      <div className="rounded-lg overflow-hidden shadow-2xl" style={{
-        background: 'linear-gradient(180deg, #0d3b0d 0%, #071a07 100%)',
-        border: '2px solid #fdd83550',
-        minWidth: '340px', maxWidth: '600px', width: '100%',
-      }}>
-        <div className="px-4 py-2 text-center font-display font-black text-xs uppercase tracking-widest"
-          style={{ background: 'linear-gradient(90deg, #0d3b0d, #fdd835, #0d3b0d)', color: '#111' }}>
-          {title}
+  const GOLD = '#fdd835';
+  const GREEN_DARK = '#0d3b0d';
+
+  // Batting Summary for a given innings
+  const BattingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
+    const inn = match.innings[inningsIdx];
+    if (!inn) return <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Innings not available</p>;
+    const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
+    const btColor = inn.battingTeamIndex === 0 ? t1Color : t2Color;
+    const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
+    return (
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6), 0 0 20px rgba(0,100,0,0.3)' }}>
+        <div className="flex items-center justify-between px-5 py-3" style={{ background: `linear-gradient(135deg, ${btColor}dd, ${btColor}88)` }}>
+          <div className="flex items-center gap-3">
+            {bt.logo && <img src={bt.logo} alt={bt.name} className="w-8 h-8 object-contain drop-shadow-lg" />}
+            <span className="font-display text-lg font-black text-white uppercase tracking-wider">{bt.name} — BATTING SUMMARY</span>
+          </div>
+          <span className="font-display text-xl font-black text-white px-3 py-0.5 rounded-md" style={{ background: 'rgba(0,0,0,0.35)' }}>{inn.runs}-{inn.wickets}</span>
         </div>
-        <div className="p-4">{children}</div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+        <div className="px-5 py-2 text-[11px] text-white/40 font-bold flex tracking-wider" style={{ background: '#0d2a0d' }}>
+          <span className="flex-1">BATSMAN</span><span className="w-12 text-right">R</span><span className="w-12 text-right">B</span><span className="w-10 text-right">4s</span><span className="w-10 text-right">6s</span>
+        </div>
+        <div style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
+          {bt.players.map((p, idx) => {
+            const isNotOut = !p.isOut && (p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
+            if (p.ballsFaced === 0 && !p.isOut) return null;
+            return (
+              <div key={p.id} className={`flex items-center px-5 py-2 border-b ${idx % 2 === 0 ? '' : ''}`} style={{ borderColor: 'rgba(255,216,53,0.08)', background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                <div className="flex-1 min-w-0">
+                  <span className="font-display font-bold text-sm text-white uppercase tracking-wide">{p.name}</span>
+                  {p.isOut && <span className="text-white/30 text-[10px] ml-2 italic">{p.dismissalType} {p.dismissedBy ? `b ${p.dismissedBy}` : ''}</span>}
+                  {isNotOut && <span className="text-[10px] ml-2 font-black tracking-wider px-1.5 py-0.5 rounded" style={{ color: '#4caf50', background: 'rgba(76,175,80,0.15)' }}>NOT OUT</span>}
+                </div>
+                <span className="w-12 text-right font-display font-black text-white text-base tabular-nums">{p.runs}</span>
+                <span className="w-12 text-right text-white/50 text-sm tabular-nums">{p.ballsFaced}</span>
+                <span className="w-10 text-right text-sm font-bold tabular-nums" style={{ color: '#42a5f5' }}>{p.fours}</span>
+                <span className="w-10 text-right text-sm font-bold tabular-nums" style={{ color: '#66bb6a' }}>{p.sixes}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between px-5 py-2.5" style={{ background: `linear-gradient(135deg, #1a5c1a, #0d3b0d)` }}>
+          <span className="font-display text-white font-bold text-xs uppercase tracking-widest">{match.matchType}</span>
+          <span className="text-white/80 text-xs font-bold">EXTRAS: {extras}</span>
+          <span className="text-white/80 text-xs font-bold">{getOversString(inn.balls, match.ballsPerOver)} OV</span>
+          <span className="font-display font-black text-white text-xl">{inn.runs}/{inn.wickets}</span>
+        </div>
       </div>
+    );
+  };
+
+  // Bowling Summary for a given innings
+  const BowlingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
+    const inn = match.innings[inningsIdx];
+    if (!inn) return <p style={{ color: '#aaa', textAlign: 'center', padding: '2rem' }}>Innings not available</p>;
+    const blt = inn.bowlingTeamIndex === 0 ? match.team1 : match.team2;
+    const bltColor = inn.bowlingTeamIndex === 0 ? t1Color : t2Color;
+    const bowlers = blt.players.filter(p => p.bowlingBalls > 0);
+    return (
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6), 0 0 20px rgba(0,100,0,0.3)' }}>
+        <div className="flex items-center gap-3 px-5 py-3" style={{ background: `linear-gradient(135deg, ${bltColor}dd, ${bltColor}88)` }}>
+          {blt.logo && <img src={blt.logo} alt={blt.name} className="w-8 h-8 object-contain drop-shadow-lg" />}
+          <span className="font-display text-lg font-black text-white uppercase tracking-wider">{blt.name} — BOWLING SUMMARY</span>
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+        <div className="px-5 py-2 text-[11px] text-white/40 font-bold flex tracking-wider" style={{ background: '#0d2a0d' }}>
+          <span className="flex-1">BOWLER</span><span className="w-14 text-right">O</span><span className="w-14 text-right">R</span><span className="w-14 text-right">W</span><span className="w-16 text-right">ECON</span>
+        </div>
+        <div style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
+          {bowlers.map((p, idx) => (
+            <div key={p.id} className="flex items-center px-5 py-2 border-b" style={{ borderColor: 'rgba(255,216,53,0.08)', background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+              <span className="font-display font-bold text-sm text-white flex-1 uppercase tracking-wide">{p.name}</span>
+              <span className="w-14 text-right text-white text-sm tabular-nums">{getOversString(p.bowlingBalls, match.ballsPerOver)}</span>
+              <span className="w-14 text-right text-white text-sm tabular-nums">{p.bowlingRuns}</span>
+              <span className="w-14 text-right font-bold text-sm tabular-nums" style={{ color: p.bowlingWickets > 0 ? '#fdd835' : 'rgba(253,216,53,0.3)' }}>{p.bowlingWickets}</span>
+              <span className="w-16 text-right text-white/50 text-sm tabular-nums">{getRunRate(p.bowlingRuns, p.bowlingBalls, match.ballsPerOver)}</span>
+            </div>
+          ))}
+          {bowlers.length === 0 && <p className="text-center py-6 text-sm font-display tracking-wider" style={{ color: 'rgba(255,255,255,0.2)' }}>NO BOWLING DATA YET</p>}
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+      </div>
+    );
+  };
+
+  // Fall of Wickets
+  const FallOfWickets = () => {
+    if (!currentInnings) return null;
+    let runningScore = 0; let runningBalls = 0;
+    const fowList = currentInnings.events.map(e => {
+      if (e.isLegal) runningBalls++;
+      runningScore += e.runs;
+      if (e.isWicket) {
+        const b = battingTeam?.players.find(p => p.id === e.batsmanId);
+        return { name: b?.name || '?', score: runningScore, overs: getOversString(runningBalls, match.ballsPerOver), type: e.wicketType };
+      }
+      return null;
+    }).filter(Boolean);
+    return (
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6), 0 0 20px rgba(0,100,0,0.3)' }}>
+        <div className="px-5 py-3" style={{ background: 'linear-gradient(135deg, #b71c1cdd, #7b0a0a88)' }}>
+          <span className="font-display text-lg font-black text-white tracking-wider">FALL OF WICKETS</span>
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+        <div style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
+          {fowList.map((f: any, i: number) => (
+            <div key={i} className="flex items-center px-5 py-2.5 border-b" style={{ borderColor: 'rgba(255,216,53,0.08)', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+              <span className="w-10 text-sm font-black tabular-nums" style={{ color: GOLD }}>{i + 1}.</span>
+              <span className="flex-1 font-display font-bold uppercase text-sm tracking-wide text-white">{f.name}</span>
+              {f.type && <span className="text-white/30 text-xs mr-3 italic">{f.type}</span>}
+              <span className="font-display font-black text-base tabular-nums text-white">{f.score}</span>
+              <span className="text-white/40 text-xs ml-3 tabular-nums">({f.overs})</span>
+            </div>
+          ))}
+          {fowList.length === 0 && <p className="text-center py-6 text-sm font-display tracking-wider" style={{ color: 'rgba(255,255,255,0.2)' }}>NO WICKETS YET</p>}
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+      </div>
+    );
+  };
+
+  // Partnership
+  const Partnership = () => {
+    if (!striker || !nonStriker) return (
+      <div className="w-[90vw] max-w-[600px] mx-auto text-center py-8" style={{ color: 'rgba(255,255,255,0.4)' }}>Waiting for batsmen...</div>
+    );
+    const totalPartnership = striker.runs + nonStriker.runs;
+    const strikerPct = totalPartnership > 0 ? (striker.runs / totalPartnership) * 100 : 50;
+    return (
+      <div className="w-[90vw] max-w-[700px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6), 0 0 20px rgba(0,100,0,0.3)' }}>
+        <div className="px-5 py-3" style={{ background: 'linear-gradient(135deg, #2e7d32dd, #1b5e2088)' }}>
+          <span className="font-display text-lg font-black text-white tracking-wider">CURRENT PARTNERSHIP</span>
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+        <div className="py-6 px-6" style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-center flex-1">
+              <p className="font-display font-bold text-base text-white uppercase tracking-wider">{striker.name}</p>
+              <p className="text-4xl font-black font-display mt-1" style={{ color: GOLD }}>{striker.runs}</p>
+              <p className="text-white/40 text-xs mt-1">({striker.ballsFaced} balls)</p>
+            </div>
+            <div className="text-center px-6">
+              <p className="text-[10px] font-display font-bold tracking-[0.3em] uppercase" style={{ color: GOLD }}>PARTNERSHIP</p>
+              <p className="font-display text-5xl font-black text-white mt-1 drop-shadow-lg">{totalPartnership}</p>
+            </div>
+            <div className="text-center flex-1">
+              <p className="font-display font-bold text-base text-white uppercase tracking-wider">{nonStriker.name}</p>
+              <p className="text-4xl font-black font-display mt-1" style={{ color: GOLD }}>{nonStriker.runs}</p>
+              <p className="text-white/40 text-xs mt-1">({nonStriker.ballsFaced} balls)</p>
+            </div>
+          </div>
+          <div className="w-full h-2.5 rounded-full overflow-hidden mt-2" style={{ background: 'rgba(255,255,255,0.1)' }}>
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${strikerPct}%`, background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD})` }} />
+          </div>
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+      </div>
+    );
+  };
+
+  // Teams / Players
+  const TeamsPlayers = () => (
+    <div className="w-[90vw] max-w-[800px] mx-auto grid grid-cols-2 gap-0 overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6)' }}>
+      {[match.team1, match.team2].map((team, ti) => (
+        <div key={ti} style={{ borderRight: ti === 0 ? '1px solid rgba(253,216,53,0.15)' : 'none' }}>
+          <div className="px-4 py-3 text-center font-display font-black text-white uppercase text-sm flex items-center justify-center gap-2 tracking-wider"
+            style={{ background: `linear-gradient(135deg, ${ti === 0 ? t1Color : t2Color}dd, ${ti === 0 ? t1Color : t2Color}88)` }}>
+            {team.logo && <img src={team.logo} alt={team.name} className="w-6 h-6 object-contain" />}
+            {team.name}
+          </div>
+          <div style={{ height: '2px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+          <div style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
+            {team.players.map((p, i) => (
+              <div key={p.id} className="px-4 py-2 text-white text-sm border-b flex items-center gap-2"
+                style={{ borderColor: 'rgba(253,216,53,0.06)', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                <span className="text-white/20 text-xs w-6 tabular-nums font-bold">{i + 1}.</span>
+                <span className="font-display uppercase text-sm tracking-wide">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 
-  const renderInfoMode = () => {
-    const inningsData = match.innings[match.currentInningsIndex] || match.innings[0];
-    const batT = inningsData?.battingTeamIndex === 0 ? match.team1 : match.team2;
-    const allBatsmen = batT?.players || [];
+  // Target Banner
+  const TargetBanner = () => {
+    const targetVal = s?.inIdx === 1 && s?.inn1Runs !== undefined ? s.inn1Runs + 1 : null;
+    const needRuns = targetVal ? Math.max(0, targetVal - displayRuns) : null;
+    const remBalls = match.overs * match.ballsPerOver - displayBalls;
+    const rrr = remBalls > 0 && needRuns !== null ? ((needRuns / remBalls) * bpo).toFixed(2) : '0.00';
+    if (!targetVal || !battingTeam) return <VSBanner />;
+    return (
+      <div className="w-full">
+        <div style={{ height: '3px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
+        <div className="relative flex items-stretch" style={{ height: '72px', background: `linear-gradient(180deg, #155215 0%, #0d3b0d 100%)` }}>
+          <div className="flex-1 flex items-center justify-center gap-4 px-4">
+            <span className="font-display text-lg font-black text-white uppercase">{battingTeam.name}</span>
+            <div className="text-center px-5 py-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, #7b1a1a, #b71c1c)', boxShadow: '0 0 15px rgba(183,28,28,0.3)' }}>
+              <p className="font-display text-white font-bold text-xs uppercase">NEED <span className="text-yellow-300 text-base font-black">{needRuns}</span> FROM <span className="text-yellow-300 text-base font-black">{remBalls}</span> BALLS</p>
+              <p className="text-white/50 text-[9px] font-display">RRR: <span className="text-yellow-300">{rrr}</span></p>
+            </div>
+            <span className="font-display text-lg font-black text-white uppercase">{bowlingTeam?.name}</span>
+          </div>
+        </div>
+        <div style={{ height: '3px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
+      </div>
+    );
+  };
 
+  // Match Summary
+  const MatchSummary = () => (
+    <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6)' }}>
+      <div className="px-5 py-3" style={{ background: 'linear-gradient(135deg, #e65100dd, #bf360c88)' }}>
+        <span className="font-display text-lg font-black text-white tracking-wider">MATCH SUMMARY</span>
+      </div>
+      <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+      <div className="space-y-3 text-white text-sm px-6 py-5" style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
+        <p><span className="text-white/40">Toss:</span> <span className="font-display font-bold">{match.tossWonBy === 0 ? match.team1.name : match.team2.name}</span> won, opted to <span className="font-bold">{match.optedTo}</span></p>
+        {match.innings.map((inn, idx) => {
+          const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
+          return <p key={idx}><span className="text-white/40">{bt.name}:</span> <span className="font-display font-bold text-lg">{inn.runs}/{inn.wickets}</span> <span className="text-white/50">({getOversString(inn.balls, match.ballsPerOver)} ov)</span></p>;
+        })}
+        {match.winner && <p className="font-display font-black text-2xl mt-4 drop-shadow-lg" style={{ color: GOLD }}>{match.winner} won by {match.winMargin}</p>}
+      </div>
+      <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+    </div>
+  );
+
+  // ===========================
+  // MAIN RENDER
+  // ===========================
+  const isBottomAligned = display.mode === 'default' || display.mode === 'score';
+
+  const renderContent = () => {
     switch (display.mode) {
-      case 'summary': {
-        const batted = allBatsmen.filter(p => p.ballsFaced > 0 || p.isOut);
-        return (
-          <InfoCard title={`${batT?.name || ''} — Batting Summary`}>
-            <div className="space-y-1">
-              {batted.map(p => (
-                <div key={p.id} className="flex items-center gap-2 text-white text-[12px] font-display">
-                  <span className="flex-1 font-bold uppercase truncate">{p.name}</span>
-                  <span className="font-black text-base">{p.runs}</span>
-                  <span className="text-white/50 text-[11px]">({p.ballsFaced})</span>
-                  {p.isOut && <span className="text-red-400 text-[10px]">{p.dismissalType || 'out'}</span>}
-                </div>
-              ))}
-              {batted.length === 0 && <p className="text-white/50 text-sm text-center">No batsmen yet</p>}
-            </div>
-          </InfoCard>
-        );
-      }
-      case 'partnership': {
-        const strikerP = inningsData?.currentStrikerId ? batT?.players.find(p => p.id === inningsData.currentStrikerId) : null;
-        const nonStrikerP = inningsData?.currentNonStrikerId ? batT?.players.find(p => p.id === inningsData.currentNonStrikerId) : null;
-        const partnershipRuns = (strikerP?.runs || 0) + (nonStrikerP?.runs || 0);
-        const partnershipBalls = (strikerP?.ballsFaced || 0) + (nonStrikerP?.ballsFaced || 0);
-        return (
-          <InfoCard title="Current Partnership">
-            <div className="flex items-center gap-6 justify-center">
-              <div className="text-center">
-                <p className="text-white/60 text-[10px] font-display tracking-widest">RUNS</p>
-                <p className="font-display font-black text-yellow-300 text-3xl tabular-nums">{partnershipRuns}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-white/60 text-[10px] font-display tracking-widest">BALLS</p>
-                <p className="font-display font-black text-white text-3xl tabular-nums">{partnershipBalls}</p>
-              </div>
-            </div>
-            <div className="flex justify-center gap-8 mt-3">
-              {strikerP && (
-                <div className="text-center">
-                  <p className="text-yellow-300 font-display font-bold text-sm uppercase">{strikerP.name}</p>
-                  <p className="text-white font-display font-black text-xl">{strikerP.runs} <span className="text-white/50 text-sm">({strikerP.ballsFaced})</span></p>
-                </div>
-              )}
-              {nonStrikerP && (
-                <div className="text-center">
-                  <p className="text-white/70 font-display font-bold text-sm uppercase">{nonStrikerP.name}</p>
-                  <p className="text-white font-display font-black text-xl">{nonStrikerP.runs} <span className="text-white/50 text-sm">({nonStrikerP.ballsFaced})</span></p>
-                </div>
-              )}
-            </div>
-          </InfoCard>
-        );
-      }
-      case 'fow': {
-        const wickets = (inningsData?.events || []).filter(e => e.isWicket);
-        return (
-          <InfoCard title="Fall of Wickets">
-            <div className="space-y-1">
-              {wickets.length === 0 ? (
-                <p className="text-white/50 text-sm text-center">No wickets yet</p>
-              ) : wickets.map((w, i) => (
-                <div key={i} className="flex items-center gap-3 text-white font-display text-[12px]">
-                  <span className="text-white/40 text-[11px]">{i + 1}.</span>
-                  <span className="font-bold uppercase flex-1">{w.wicketType || 'out'}</span>
-                </div>
-              ))}
-            </div>
-          </InfoCard>
-        );
-      }
-      case 'target': {
-        return (
-          <InfoCard title="Target">
-            <div className="text-center">
-              <p className="font-display font-black text-yellow-300 text-5xl tabular-nums">{target || '—'}</p>
-              {need !== null && need > 0 && (
-                <p className="text-white/70 font-display text-sm mt-2">Need {need} from {remainBalls} balls</p>
-              )}
-            </div>
-          </InfoCard>
-        );
-      }
-      default: return null;
+      case 'vs': return <VSBanner />;
+      case 'target': return <TargetBanner />;
+      case '1bat': return <BattingSummary inningsIdx={0} />;
+      case '2bat': return <BattingSummary inningsIdx={1} />;
+      case '1ball': case 'b1': return <BowlingSummary inningsIdx={0} />;
+      case '2ball': case 'b2': return <BowlingSummary inningsIdx={1} />;
+      case 'bowler': return <BowlingSummary inningsIdx={match.currentInningsIndex} />;
+      case 'fow': return <FallOfWickets />;
+      case 'partnership': return <Partnership />;
+      case 'teams': return <TeamsPlayers />;
+      case 'summary': return <MatchSummary />;
+      case 'score': case 'default': default: return <DefaultScoreBar />;
     }
   };
 
-  // ===========================
-  // RENDER
-  // ===========================
-  const isDefaultMode = display.mode === 'default' || display.mode === 'score';
-
   return (
-    <div className="w-full min-h-screen bg-transparent relative flex flex-col justify-end">
-      {/* Info modes - centered vertically */}
-      {!isDefaultMode && display.mode !== 'vs' && (
-        <div className="absolute inset-0 flex items-center justify-center z-20 p-4">
-          {renderInfoMode()}
-        </div>
-      )}
-
-      {/* VS Banner */}
-      {display.mode === 'vs' && (
-        <div className="absolute bottom-[84px] left-0 right-0 z-20">
-          <VSBanner />
-        </div>
-      )}
-
-      {/* Bottom scorebar */}
-      {isDefaultMode && (
-        <div className="w-full z-10">
-          <DefaultScoreBar />
-        </div>
-      )}
-
-      {/* Broadcast overlay banner (FOUR / SIX / WICKET) */}
-      <BroadcastOverlayBanner
-        overlay={display.overlay}
-        onHide={() => setDisplay(prev => ({ ...prev, overlay: 'none' }))}
-      />
-      {/* Boundary alert (Total 4 / Total 6 card) */}
-      <BoundaryAlert snapshot={snapshot} variant="dark" barHeight={82} />
+    <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
+      <div className={isBottomAligned ? 'w-full relative' : 'w-full px-2 md:px-4'}>
+        {renderContent()}
+        {/* Broadcast overlay banner (FOUR / SIX / WICKET) */}
+        <BroadcastOverlayBanner
+          overlay={display.overlay}
+          onHide={() => setDisplay(prev => ({ ...prev, overlay: 'none' }))}
+        />
+        {/* Boundary alert (Total 4 / Total 6 card) */}
+        {isBottomAligned && <BoundaryAlert snapshot={snapshot} variant="dark" barHeight={82} />}
+      </div>
     </div>
   );
 };
