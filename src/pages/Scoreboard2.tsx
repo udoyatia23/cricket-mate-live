@@ -106,6 +106,8 @@ const Scoreboard2Inner = () => {
     const applySnapshot = (snap: ScoreboardSnapshot) => {
       lastPayloadTs.current = Date.now();
       setSnapshot(snap);
+      // Also reload full match data so BattingSummary/BowlingSummary have fresh player stats
+      loadMatch();
       // Apply display mode/overlay from snapshot for instant sync
       if (snap.displayMode) {
         setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: snap.overlay && snap.overlay !== 'none' ? snap.overlay : prev.overlay }));
@@ -141,7 +143,8 @@ const Scoreboard2Inner = () => {
         if (!mounted) return;
         const row = payload.new as any;
         if (row?.display_state) setDisplay(row.display_state as DisplayState);
-        if (row?.match_data && Date.now() - lastPayloadTs.current > 5000) setMatch({ ...row.match_data, id } as unknown as Match);
+        // Always update match data so summaries stay fresh
+        if (row?.match_data) setMatch({ ...row.match_data, id } as unknown as Match);
       }).subscribe();
 
     return () => { mounted = false; supabase.removeChannel(scoreLiveCh); supabase.removeChannel(broadcastCh); supabase.removeChannel(pgCh); };

@@ -133,6 +133,8 @@ const ScoreboardInner = () => {
       console.log('SNAPSHOT_APPLIED', Date.now(), 'inIdx=', snap.inIdx, 'runs=', snap.inn.runs, 'wickets=', snap.inn.wickets, 'balls=', snap.inn.balls, 'displayMode=', snap.displayMode);
       // Replace snapshot entirely - this is the SOLE source of truth for score bar
       setSnapshot(snap);
+      // Also reload full match data so BattingSummary/BowlingSummary have fresh player stats
+      loadMatch();
       // Apply display mode/overlay from snapshot for instant sync
       if (snap.displayMode) {
         setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: snap.overlay && snap.overlay !== 'none' ? snap.overlay : prev.overlay }));
@@ -199,7 +201,7 @@ const ScoreboardInner = () => {
         console.log(`[Scoreboard] broadcast channel: ${status}`);
       });
 
-    // BACKUP: postgres_changes on matches table (for display_state changes)
+    // BACKUP: postgres_changes on matches table (for display_state + match data changes)
     const pgCh = supabase
       .channel(`pg-${id}-${Date.now()}`)
       .on(
@@ -211,8 +213,8 @@ const ScoreboardInner = () => {
           if (row?.display_state) {
             setDisplay(row.display_state as DisplayState);
           }
-          // Only use match_data as fallback if no recent snapshot
-          if (row?.match_data && Date.now() - lastPayloadTs.current > 5000) {
+          // Always update match_data from matches table so summaries stay fresh
+          if (row?.match_data) {
             setMatch({ ...row.match_data, id } as unknown as Match);
           }
         }
