@@ -203,7 +203,15 @@ const AdminUsers = () => {
                             type="datetime-local"
                             className="mt-1 bg-background border-input text-sm"
                             value={subEnd ? new Date(subEnd).toISOString().slice(0, 16) : ''}
-                            onChange={e => setEditState(prev => ({ ...prev, [user.id]: { ...prev[user.id], subscription_end: e.target.value ? new Date(e.target.value).toISOString() : null } }))}
+                            onChange={e => {
+                              const val = e.target.value;
+                              let isoVal: string | null = null;
+                              if (val) {
+                                const d = new Date(val);
+                                if (!isNaN(d.getTime())) isoVal = d.toISOString();
+                              }
+                              setEditState(prev => ({ ...prev, [user.id]: { ...prev[user.id], subscription_end: isoVal } }));
+                            }}
                           />
                         </div>
                       </div>
