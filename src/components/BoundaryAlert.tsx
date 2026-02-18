@@ -14,57 +14,39 @@ export default function BoundaryAlert({ snapshot, variant = 'dark', barHeight = 
   const [animIn, setAnimIn] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
   const animTimer = useRef<ReturnType<typeof setTimeout>>();
-  const lastFours = useRef(-1);
-  const lastSixes = useRef(-1);
+  const lastBoundaryAlert = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!snapshot) return;
-    const fours = snapshot.totalFours || 0;
-    const sixes = snapshot.totalSixes || 0;
 
-    // Initialize on first snapshot (don't trigger)
-    if (lastFours.current === -1) {
-      lastFours.current = fours;
-      lastSixes.current = sixes;
-      return;
-    }
+    // Only trigger when boundaryAlert is explicitly set via manual button
+    const alert = snapshot.boundaryAlert;
+    if (!alert) return;
 
-    let triggered = false;
-    let type: 'fours' | 'sixes' = 'fours';
-    let newCount = 0;
+    // Avoid re-triggering on same snapshot re-render
+    const alertKey = `${alert}-${snapshot.ts}`;
+    if (lastBoundaryAlert.current === alertKey) return;
+    lastBoundaryAlert.current = alertKey;
 
-    // Sixes take priority
-    if (sixes > lastSixes.current) {
-      type = 'sixes';
-      newCount = sixes;
-      triggered = true;
-    } else if (fours > lastFours.current) {
-      type = 'fours';
-      newCount = fours;
-      triggered = true;
-    }
+    const type = alert;
+    const newCount = type === 'fours' ? (snapshot.totalFours || 0) : (snapshot.totalSixes || 0);
 
-    lastFours.current = fours;
-    lastSixes.current = sixes;
+    setAlertType(type);
+    setCount(newCount);
+    setVisible(true);
+    setAnimIn(false);
 
-    if (triggered) {
-      setAlertType(type);
-      setCount(newCount);
-      setVisible(true);
+    // Slight delay for slide-up animation
+    if (animTimer.current) clearTimeout(animTimer.current);
+    animTimer.current = setTimeout(() => setAnimIn(true), 30);
+
+    // Auto-hide after 5 seconds
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
       setAnimIn(false);
-
-      // Slight delay for slide-up animation
-      if (animTimer.current) clearTimeout(animTimer.current);
-      animTimer.current = setTimeout(() => setAnimIn(true), 30);
-
-      // Auto-hide after 5 seconds
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-      hideTimer.current = setTimeout(() => {
-        setAnimIn(false);
-        setTimeout(() => setVisible(false), 400);
-      }, 5000);
-    }
-  }, [snapshot?.totalFours, snapshot?.totalSixes]);
+      setTimeout(() => setVisible(false), 400);
+    }, 5000);
+  }, [snapshot?.boundaryAlert, snapshot?.ts]);
 
   useEffect(() => {
     return () => {
