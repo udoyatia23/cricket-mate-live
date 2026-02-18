@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import BoundaryAlert from '@/components/BoundaryAlert';
 import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
+import MatchSummaryCard from '@/components/MatchSummaryCard';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -759,23 +760,8 @@ const Scoreboard4Inner = () => {
   };
 
   // Match Summary
-  const MatchSummary = () => (
-    <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6)' }}>
-      <div className="px-5 py-3" style={{ background: 'linear-gradient(135deg, #e65100dd, #bf360c88)' }}>
-        <span className="font-display text-lg font-black text-white tracking-wider">MATCH SUMMARY</span>
-      </div>
-      <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
-      <div className="space-y-3 text-white text-sm px-6 py-5" style={{ background: 'linear-gradient(180deg, #0a1f0a, #071207)' }}>
-        <p><span className="text-white/40">Toss:</span> <span className="font-display font-bold">{match.tossWonBy === 0 ? match.team1.name : match.team2.name}</span> won, opted to <span className="font-bold">{match.optedTo}</span></p>
-        {match.innings.map((inn, idx) => {
-          const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
-          return <p key={idx}><span className="text-white/40">{bt.name}:</span> <span className="font-display font-bold text-lg">{inn.runs}/{inn.wickets}</span> <span className="text-white/50">({getOversString(inn.balls, match.ballsPerOver)} ov)</span></p>;
-        })}
-        {match.winner && <p className="font-display font-black text-2xl mt-4 drop-shadow-lg" style={{ color: GOLD }}>{match.winner} won by {match.winMargin}</p>}
-      </div>
-      <div style={{ height: '3px', background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
-    </div>
-  );
+  const MatchSummary = () => <MatchSummaryCard match={match} theme="forest" />;
+
 
   // ===========================
   // MAIN RENDER
