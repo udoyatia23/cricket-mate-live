@@ -135,7 +135,10 @@ Deno.serve(async (req) => {
     const { user_id, status, subscription_end, notes } = body;
     const { error } = await supabaseAdmin
       .from('user_access')
-      .upsert({ user_id, status, subscription_end: subscription_end || null, notes: notes || '' });
+      .upsert(
+        { user_id, status, subscription_end: subscription_end || null, notes: notes || '' },
+        { onConflict: 'user_id' }
+      );
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders });
     return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
   }
