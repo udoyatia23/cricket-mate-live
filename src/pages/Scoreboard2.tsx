@@ -398,38 +398,74 @@ const Scoreboard2Inner = () => {
     const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
     const btColor = inn.battingTeamIndex === 0 ? t1Color : t2Color;
     const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
+    // Always show all 11 slots (IPL-style)
+    const allSlots = Array.from({ length: 11 }, (_, i) => bt.players[i] || null);
     return (
       <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3" style={{ background: `linear-gradient(135deg, ${btColor}, ${btColor}cc)` }}>
           <div className="flex items-center gap-3">
             {bt.logo && <img src={bt.logo} alt={bt.name} className="w-8 h-8 object-contain" />}
-            <span className="font-display text-lg md:text-xl font-black text-white uppercase tracking-wider">{bt.name} - BATTING</span>
+            <span className="font-display text-lg md:text-xl font-black text-white uppercase tracking-wider">{bt.name} — BATTING SUMMARY</span>
           </div>
           <span className="font-display text-xl md:text-2xl font-black text-white">{inn.runs}-{inn.wickets}</span>
         </div>
         <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, rgba(200,180,140,0.3), rgba(200,180,140,0.8), rgba(200,180,140,0.3))' }} />
-        <div className="px-5 py-2 text-[11px] text-gray-400 font-bold flex tracking-wider" style={{ background: 'linear-gradient(180deg, #f8f8fa, #f0f0f3)' }}>
-          <span className="flex-1">BATSMAN</span><span className="w-12 text-right">R</span><span className="w-12 text-right">B</span><span className="w-10 text-right">4s</span><span className="w-10 text-right">6s</span>
+        {/* Column headers */}
+        <div className="px-5 py-1.5 text-[11px] text-gray-400 font-bold flex tracking-wider" style={{ background: 'linear-gradient(180deg, #f8f8fa, #f0f0f3)' }}>
+          <span className="w-6 text-gray-300 text-[10px]">#</span>
+          <span className="flex-1">BATSMAN</span>
+          <span className="w-36 text-center text-[10px]">DISMISSAL</span>
+          <span className="w-10 text-right">R</span>
+          <span className="w-10 text-right">B</span>
         </div>
+        {/* All 11 player rows */}
         <div style={{ background: '#fff' }}>
-          {bt.players.map((p, idx) => {
-            const isNotOut = !p.isOut && (p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
-            if (p.ballsFaced === 0 && !p.isOut) return null;
-            return (
-              <div key={p.id} className={`flex items-center px-5 py-2 border-b border-gray-100 ${idx % 2 === 0 ? 'bg-gray-50/50' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <span className="font-display font-bold text-sm text-[#1a1a2e] uppercase tracking-wide">{p.name}</span>
-                  {p.isOut && <span className="text-gray-400 text-[10px] ml-2 italic">{p.dismissalType} {p.dismissedBy ? `b ${p.dismissedBy}` : ''}</span>}
-                  {isNotOut && <span className="text-[10px] ml-2 font-black tracking-wider px-1.5 py-0.5 rounded bg-green-100 text-green-700">NOT OUT</span>}
+          {allSlots.map((p, idx) => {
+            if (!p) {
+              return (
+                <div key={`empty-${idx}`} className="flex items-center px-5 border-b border-gray-100" style={{ height: '32px', background: idx % 2 === 0 ? '#f9f9f9' : '#fff' }}>
+                  <span className="w-6 text-gray-200 text-[11px] font-bold tabular-nums">{idx + 1}</span>
+                  <div className="flex-1 h-[1px] rounded" style={{ background: 'rgba(0,0,0,0.05)' }} />
                 </div>
-                <span className="w-12 text-right font-display font-black text-[#1a1a2e] text-base tabular-nums">{p.runs}</span>
-                <span className="w-12 text-right text-gray-400 text-sm tabular-nums">{p.ballsFaced}</span>
-                <span className="w-10 text-right text-blue-600 text-sm font-bold tabular-nums">{p.fours}</span>
-                <span className="w-10 text-right text-green-600 text-sm font-bold tabular-nums">{p.sixes}</span>
+              );
+            }
+            const isStriker = p.id === inn.currentStrikerId;
+            const isNonStriker = p.id === inn.currentNonStrikerId;
+            const isNotOut = !p.isOut && (isStriker || isNonStriker || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
+            const hasBatted = p.ballsFaced > 0 || p.isOut;
+            const isCurrentlyBatting = isStriker || isNonStriker;
+            return (
+              <div key={p.id}
+                className="flex items-center px-5 border-b border-gray-100"
+                style={{
+                  height: '34px',
+                  background: isCurrentlyBatting ? 'rgba(198,40,40,0.04)' : idx % 2 === 0 ? '#f9f9f9' : '#fff',
+                }}>
+                <span className="w-6 text-gray-300 text-[11px] font-bold tabular-nums">{idx + 1}</span>
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  {isStriker && <span style={{ color: '#c62828', fontSize: '10px', fontWeight: 900, flexShrink: 0 }}>▶</span>}
+                  <span className={`font-display font-bold text-[13px] uppercase tracking-wide truncate ${hasBatted ? 'text-[#1a1a2e]' : 'text-gray-300'}`}>
+                    {p.name}
+                  </span>
+                  {isNotOut && (
+                    <span className="text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded flex-shrink-0 bg-green-100 text-green-700">NOT OUT</span>
+                  )}
+                </div>
+                {/* Dismissal */}
+                <div className="w-36 text-center">
+                  {hasBatted && p.isOut && (
+                    <span className="text-gray-400 text-[10px] italic truncate block">{p.dismissalType}{p.dismissedBy ? ` b ${p.dismissedBy}` : ''}</span>
+                  )}
+                </div>
+                {/* Stats */}
+                <span className={`w-10 text-right font-display font-black text-base tabular-nums ${hasBatted ? 'text-[#1a1a2e]' : 'text-gray-200'}`}>{hasBatted ? p.runs : ''}</span>
+                <span className={`w-10 text-right text-sm tabular-nums ${hasBatted ? 'text-gray-400' : 'text-gray-200'}`}>{hasBatted ? p.ballsFaced : ''}</span>
               </div>
             );
           })}
         </div>
+        {/* Footer */}
         <div className="flex items-center justify-between px-5 py-2.5" style={{ background: `linear-gradient(135deg, ${btColor}, ${btColor}cc)` }}>
           <span className="font-display text-white font-bold text-xs uppercase tracking-widest">{match.matchType}</span>
           <span className="text-white text-xs font-bold">EXTRAS: {extras}</span>
