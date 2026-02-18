@@ -144,14 +144,22 @@ export default function MatchSummaryCard({ match, theme = 'dark' }: Props) {
         // Batting: players who have batted + current non-out batsmen
         const currentStrikerId = inn.currentStrikerId;
         const currentNonStrikerId = inn.currentNonStrikerId;
-        const batters = bt.players.filter(p =>
+        const allBatters = bt.players.filter(p =>
           p.ballsFaced > 0 || p.isOut ||
           p.id === currentStrikerId || p.id === currentNonStrikerId
         );
+        // Top 3 batsmen by runs (highest first)
+        const batters = [...allBatters]
+          .sort((a, b) => b.runs - a.runs)
+          .slice(0, 3);
 
-        // Bowling: only players who bowled
+        // Bowling: only players who bowled — top 3 by wickets desc, then runs asc
         const bowlers = blt.players.filter(p => p.bowlingBalls > 0)
-          .sort((a, b) => b.bowlingBalls - a.bowlingBalls);
+          .sort((a, b) => {
+            if (b.bowlingWickets !== a.bowlingWickets) return b.bowlingWickets - a.bowlingWickets;
+            return a.bowlingRuns - b.bowlingRuns;
+          })
+          .slice(0, 3);
 
         const extras = inn.extras
           ? inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes
