@@ -398,7 +398,7 @@ const Scoreboard4Inner = () => {
           {/* MATCH TITLE / VENUE → rotating ticker */}
           <div className="flex items-center justify-center flex-1 overflow-hidden"
             style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN_MID})` }}>
-            <ScoreboardTicker snapshot={s} match={match} variant="dark" />
+            <ScoreboardTicker snapshot={s} match={match} variant="green" />
           </div>
 
           {/* Right chevron decoration */}

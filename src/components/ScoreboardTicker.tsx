@@ -6,7 +6,7 @@ import { Match } from '@/types/cricket';
 interface TickerProps {
   snapshot: ScoreboardSnapshot | null;
   match: Match | null;
-  variant?: 'dark' | 'light' | 'premium';
+  variant?: 'dark' | 'light' | 'premium' | 'green';
 }
 
 type TickerItem = { label: string; value: string; highlight?: boolean };
@@ -133,9 +133,12 @@ export default function ScoreboardTicker({ snapshot, match, variant = 'dark' }: 
     ? { background: 'linear-gradient(135deg, #4a148c, #311b92)' }
     : variant === 'premium'
     ? { background: 'linear-gradient(135deg, #1a1a2e, #16213e)' }
+    : variant === 'green'
+    ? { background: 'transparent' }
     : { background: 'linear-gradient(135deg, #071a07, #0a2a0a)' };
 
   const labelColor = variant === 'light' ? '#fcd34d' : variant === 'premium' ? '#fbbf24' : '#fdd835';
+  const isGreen = variant === 'green';
   const isWinItem = item.highlight;
 
   return (
@@ -148,14 +151,14 @@ export default function ScoreboardTicker({ snapshot, match, variant = 'dark' }: 
         style={{ transition: 'opacity 0.4s ease, transform 0.4s ease' }}
       >
         <span
-          className="text-[9px] md:text-[10px] font-display font-black tracking-widest"
+          className={`font-display font-black tracking-widest ${isGreen ? 'text-[12px] md:text-[14px]' : 'text-[9px] md:text-[10px]'}`}
           style={{ color: isWinItem ? '#4ade80' : labelColor }}
         >
           {item.label}
         </span>
         <span className="text-white/50 text-[8px]">•</span>
         <span
-          className="text-[9px] md:text-[10px] font-display font-bold tracking-wider"
+          className={`font-display font-bold tracking-wider ${isGreen ? 'text-[12px] md:text-[14px]' : 'text-[9px] md:text-[10px]'}`}
           style={{ color: isWinItem ? '#fde68a' : 'white' }}
         >
           {item.value}
