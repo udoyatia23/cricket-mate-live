@@ -48,5 +48,10 @@ export interface ScoreboardSnapshot {
   totalSixes?: number;
   // Boundary alert trigger: 'fours' | 'sixes' | undefined
   boundaryAlert?: 'fours' | 'sixes';
+  // Upcoming match info (for 'upcoming' display mode)
+  upcomingTeam1?: string;
+  upcomingTeam2?: string;
+  upcomingMatchType?: string;
+  upcomingMatchNo?: number;
   ts: number;
 }

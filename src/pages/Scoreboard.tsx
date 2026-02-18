@@ -3,6 +3,7 @@ import ScoreboardTicker from '@/components/ScoreboardTicker';
 import BoundaryAlert from '@/components/BoundaryAlert';
 import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
 import MatchSummaryCard from '@/components/MatchSummaryCard';
+import UpcomingMatchDisplay from '@/components/UpcomingMatchDisplay';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -790,6 +791,7 @@ const ScoreboardInner = () => {
       case 'partnership': return <Partnership />;
       case 'teams': return <TeamsPlayers />;
       case 'summary': return <MatchSummary />;
+      case 'upcoming': return <UpcomingMatchDisplay snapshot={snapshot} variant="dark" />;
       case 'score': case 'default': default: return <DefaultScoreBar />;
     }
   };
