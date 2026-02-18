@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 're
 import BoundaryAlert from '@/components/BoundaryAlert';
 import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
 import MatchSummaryCard from '@/components/MatchSummaryCard';
+import ScoreboardTicker from '@/components/ScoreboardTicker';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -411,6 +412,9 @@ const Scoreboard4Inner = () => {
 
         {/* Gold divider line */}
         <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD} 30%, ${GOLD} 70%, ${GREEN_DARK})` }} />
+
+        {/* ── TICKER ROW ── rotating info: toss, CRR, RRR, WIN% */}
+        <ScoreboardTicker snapshot={s} match={match} variant="dark" />
 
         {/* ── BOTTOM ROW ── */}
         <div className="relative flex items-stretch w-full" style={{ height: '36px', background: `linear-gradient(180deg, #0a2a0a 0%, #071a07 100%)` }}>

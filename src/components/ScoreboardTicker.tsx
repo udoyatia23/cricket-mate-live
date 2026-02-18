@@ -133,9 +133,9 @@ export default function ScoreboardTicker({ snapshot, match, variant = 'dark' }: 
     ? { background: 'linear-gradient(135deg, #4a148c, #311b92)' }
     : variant === 'premium'
     ? { background: 'linear-gradient(135deg, #1a1a2e, #16213e)' }
-    : { background: 'linear-gradient(135deg, #0d0a38, #150f50)' };
+    : { background: 'linear-gradient(135deg, #071a07, #0a2a0a)' };
 
-  const labelColor = variant === 'light' ? '#fcd34d' : variant === 'premium' ? '#fbbf24' : '#fcd34d';
+  const labelColor = variant === 'light' ? '#fcd34d' : variant === 'premium' ? '#fbbf24' : '#fdd835';
   const isWinItem = item.highlight;
 
   return (
