@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export type DisplayMode = 
   | 'default' | 'score' | '1bat' | '1ball' | '2bat' | '2ball' 
   | 'summary' | 'fow' | 'b1' | 'b2' | 'bowler' | 'target' 
-  | 'partnership' | 'teams' | 'vs';
+  | 'partnership' | 'teams' | 'vs' | 'upcoming';
 
 export type AnimationOverlay = 'none' | 'four' | 'six' | 'wicket' | 'free_hit' | 'hat_trick' | 'out' | 'not_out';
 

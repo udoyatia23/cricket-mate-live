@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowLeft, Undo2, Plus, Trophy, Users, ArrowLeftRight } from 'lucide-react';
 import { Match, Player, Innings, BallEvent, createPlayer, createInnings, getOversString, getRunRate } from '@/types/cricket';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
-import { getMatch, updateMatch, getTournament } from '@/lib/store';
+import { getMatch, updateMatch, getTournament, getMatchesForTournament } from '@/lib/store';
 import { setDisplayState, DisplayMode, AnimationOverlay } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -89,12 +89,14 @@ const MatchController = () => {
 
   const [tournamentName, setTournamentName] = useState('Tournament');
   const [tournamentVenue, setTournamentVenue] = useState('');
+  const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
   useEffect(() => {
     if (match?.tournamentId) {
       getTournament(match.tournamentId).then(t => {
         setTournamentName(t?.name || 'Tournament');
         setTournamentVenue(t?.address || '');
       });
+      getMatchesForTournament(match.tournamentId).then(ms => setTournamentMatches(ms));
     }
   }, [match?.tournamentId]);
 
@@ -362,6 +364,32 @@ const MatchController = () => {
     }, 6000);
   };
 
+  // Send upcoming match display mode with next match info
+  const sendUpcomingMatch = useCallback(() => {
+    if (!id || !match) return;
+    // Find next upcoming match in this tournament
+    const upcoming = tournamentMatches.find(m => m.id !== match.id && m.status === 'upcoming');
+    const snapshot = createSnapshot(match);
+    snapshot.displayMode = 'upcoming';
+    if (upcoming) {
+      snapshot.upcomingTeam1 = upcoming.team1.name;
+      snapshot.upcomingTeam2 = upcoming.team2.name;
+      snapshot.upcomingMatchType = upcoming.matchType;
+      snapshot.upcomingMatchNo = upcoming.matchNo;
+    } else {
+      // No upcoming, show placeholder
+      snapshot.upcomingTeam1 = '???';
+      snapshot.upcomingTeam2 = '???';
+    }
+    broadcastPayload({ snapshot });
+    setDisplayState(id, { mode: 'upcoming' });
+    setActiveDisplay('upcoming');
+    (supabase.from('score_live') as any).upsert(
+      { match_id: id, snapshot, updated_at: new Date().toISOString() },
+      { onConflict: 'match_id' }
+    );
+  }, [id, match, tournamentMatches, createSnapshot, broadcastPayload]);
+
   if (!match) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -369,6 +397,7 @@ const MatchController = () => {
       </div>
     );
   }
+
 
   const currentInnings: Innings | null = match.currentInningsIndex >= 0 ? match.innings[match.currentInningsIndex] : null;
   const battingTeam = currentInnings ? (currentInnings.battingTeamIndex === 0 ? match.team1 : match.team2) : null;
@@ -1246,14 +1275,130 @@ const MatchController = () => {
           </Section>
         )}
 
-        {/* Match Result */}
-        {match.status === 'finished' && (
-          <Section className="text-center border-primary/30 shadow-glow">
-            <Trophy className="h-12 w-12 text-accent mx-auto mb-3" />
-            <h2 className="font-display text-3xl font-bold mb-2">{match.winner} Won!</h2>
-            <p className="text-muted-foreground text-lg">by {match.winMargin}</p>
-          </Section>
-        )}
+        {/* ── MATCH FINISHED PANEL ─────────────────────────────────── */}
+        {match.status === 'finished' && (() => {
+          // Top batsmen across both innings
+          const allBatsmen = [...match.team1.players, ...match.team2.players]
+            .filter(p => p.ballsFaced > 0 || p.runs > 0)
+            .map(p => ({
+              name: p.name,
+              team: match.team1.players.includes(p) ? match.team1.name : match.team2.name,
+              runs: p.runs,
+              balls: p.ballsFaced,
+              fours: p.fours,
+              sixes: p.sixes,
+            }))
+            .sort((a, b) => b.runs - a.runs)
+            .slice(0, 5);
+
+          // Top bowlers across both innings
+          const allBowlers = [...match.team1.players, ...match.team2.players]
+            .filter(p => p.bowlingBalls > 0)
+            .map(p => ({
+              name: p.name,
+              team: match.team1.players.includes(p) ? match.team1.name : match.team2.name,
+              wickets: p.bowlingWickets,
+              runs: p.bowlingRuns,
+              balls: p.bowlingBalls,
+            }))
+            .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs)
+            .slice(0, 5);
+
+          return (
+            <div className="mb-4 rounded-2xl overflow-hidden border-2" style={{ borderColor: '#fdd835', background: 'linear-gradient(135deg, #0a1a0a, #0d2a1a)' }}>
+              {/* Header */}
+              <div className="flex items-center justify-center gap-3 py-3 px-4" style={{ background: 'linear-gradient(135deg, #1b5e20, #2e7d32)' }}>
+                <Trophy className="h-5 w-5" style={{ color: '#fdd835' }} />
+                <span className="font-display text-lg font-bold" style={{ color: '#fdd835' }}>MATCH RESULT</span>
+                <Trophy className="h-5 w-5" style={{ color: '#fdd835' }} />
+              </div>
+
+              <div className="p-4 grid grid-cols-2 gap-4">
+                {/* Top Batsmen */}
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-widest mb-2 text-center" style={{ color: '#fdd835' }}>🏏 Top Batsmen</div>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(253,216,53,0.3)' }}>
+                        <th className="text-left pb-1 font-bold" style={{ color: '#90caf9' }}>Name</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#fdd835' }}>R</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#aaa' }}>B</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#f97316' }}>4s</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#a855f7' }}>6s</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allBatsmen.map((b, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td className="py-1 font-semibold truncate max-w-[80px]" style={{ color: '#fff' }}>{b.name}</td>
+                          <td className="text-right py-1 font-bold" style={{ color: '#fdd835' }}>{b.runs}</td>
+                          <td className="text-right py-1" style={{ color: '#aaa' }}>{b.balls}</td>
+                          <td className="text-right py-1" style={{ color: '#f97316' }}>{b.fours}</td>
+                          <td className="text-right py-1" style={{ color: '#a855f7' }}>{b.sixes}</td>
+                        </tr>
+                      ))}
+                      {allBatsmen.length === 0 && <tr><td colSpan={5} className="text-center py-2" style={{ color: '#666' }}>No data</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Top Bowlers */}
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-widest mb-2 text-center" style={{ color: '#fdd835' }}>🎯 Top Bowlers</div>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(253,216,53,0.3)' }}>
+                        <th className="text-left pb-1 font-bold" style={{ color: '#90caf9' }}>Name</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#4ade80' }}>W</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#aaa' }}>R</th>
+                        <th className="text-right pb-1 font-bold" style={{ color: '#aaa' }}>O</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allBowlers.map((b, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td className="py-1 font-semibold truncate max-w-[80px]" style={{ color: '#fff' }}>{b.name}</td>
+                          <td className="text-right py-1 font-bold" style={{ color: '#4ade80' }}>{b.wickets}</td>
+                          <td className="text-right py-1" style={{ color: '#aaa' }}>{b.runs}</td>
+                          <td className="text-right py-1" style={{ color: '#aaa' }}>{Math.floor(b.balls / match.ballsPerOver)}.{b.balls % match.ballsPerOver}</td>
+                        </tr>
+                      ))}
+                      {allBowlers.length === 0 && <tr><td colSpan={4} className="text-center py-2" style={{ color: '#666' }}>No data</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Win Result Banner */}
+              <div className="py-3 px-4 text-center" style={{ background: 'linear-gradient(135deg, #b71c1c, #c62828)' }}>
+                <div className="font-display text-xl font-black uppercase tracking-wide" style={{ color: '#fdd835' }}>
+                  🏆 {match.winner} WON
+                </div>
+                <div className="text-sm font-bold mt-0.5" style={{ color: '#fff' }}>by {match.winMargin}</div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 p-4">
+                <button
+                  onClick={sendUpcomingMatch}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #1565c0, #1976d2)', border: '2px solid #42a5f5', color: '#fff', boxShadow: '0 0 16px rgba(66,165,245,0.4)' }}
+                >
+                  ⏭ UPCOMING MATCH
+                </button>
+                <Link
+                  to={`/tournament/${match.tournamentId}`}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #e65100, #f57c00)', border: '2px solid #ffd54f', color: '#fff', boxShadow: '0 0 16px rgba(255,152,0,0.4)', textDecoration: 'none' }}
+                >
+                  🏟 {tournamentName}
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
+
+
 
         {/* Innings Dialog */}
         <Dialog open={inningsDialogOpen} onOpenChange={setInningsDialogOpen}>
