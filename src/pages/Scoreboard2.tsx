@@ -402,8 +402,15 @@ const Scoreboard2Inner = () => {
     const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
     const btColor = inn.battingTeamIndex === 0 ? t1Color : t2Color;
     const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
-    // Always show all 11 slots (IPL-style)
-    const allSlots = Array.from({ length: 11 }, (_, i) => bt.players[i] || null);
+    // Show players who have batted or are currently batting first (in batting order),
+    // then fill remaining slots as empty — never show bowlers who haven't batted
+    const battedPlayers = bt.players.filter(p =>
+      p.ballsFaced > 0 || p.isOut || p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId
+    );
+    const allSlots: (typeof battedPlayers[0] | null)[] = [
+      ...battedPlayers,
+      ...Array.from({ length: Math.max(0, 11 - battedPlayers.length) }, () => null),
+    ];
     return (
       <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
         {/* Header */}
