@@ -481,6 +481,98 @@ const ScoreboardInner = () => {
     );
   };
 
+  // ============ BATTING SUMMARY ============
+  const BattingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
+    const inn = match.innings[inningsIdx];
+    if (!inn) return <p className="text-white/40 text-center p-8">Innings not available</p>;
+    const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
+    const btColor = inn.battingTeamIndex === 0 ? t1Color : t2Color;
+    const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
+    const battedPlayers = bt.players.filter(p => p.ballsFaced > 0 || p.isOut || p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId);
+    const allSlots: (typeof battedPlayers[0] | null)[] = [...battedPlayers, ...Array.from({ length: Math.max(0, 11 - battedPlayers.length) }, () => null)];
+    return (
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
+        <div className="flex items-center justify-between px-5 py-3" style={{ background: `linear-gradient(135deg, ${btColor}dd, ${btColor}88)` }}>
+          <div className="flex items-center gap-3">
+            {bt.logo && <img src={bt.logo} alt={bt.name} className="w-8 h-8 object-contain" />}
+            <span className="font-display text-lg font-black text-white uppercase tracking-wider">{bt.name} — BATTING</span>
+          </div>
+          <span className="font-display text-xl font-black text-white px-3 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.3)' }}>{inn.runs}/{inn.wickets}</span>
+        </div>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="px-5 py-1.5 text-[11px] text-white/40 font-bold flex tracking-wider" style={{ background: 'linear-gradient(180deg, #150f50, #0d0a38)' }}>
+          <span className="w-6 text-white/20 text-[10px]">#</span><span className="flex-1">BATSMAN</span><span className="w-36 text-center">DISMISSAL</span><span className="w-10 text-right">R</span><span className="w-10 text-right">B</span>
+        </div>
+        <div style={{ background: 'linear-gradient(180deg, #150f50, #0d0a38)' }}>
+          {allSlots.map((p, idx) => {
+            if (!p) return (
+              <div key={`e-${idx}`} className="flex items-center px-5 border-b border-white/5" style={{ height: '32px' }}>
+                <span className="w-6 text-white/10 text-[11px]">{idx + 1}</span>
+                <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.04)' }} />
+              </div>
+            );
+            const isStriker = p.id === inn.currentStrikerId;
+            const isNonStriker = p.id === inn.currentNonStrikerId;
+            const isNotOut = !p.isOut && (isStriker || isNonStriker || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
+            const hasBatted = p.ballsFaced > 0 || p.isOut;
+            return (
+              <div key={p.id} className="flex items-center px-5 border-b border-white/5" style={{ height: '34px', background: (isStriker || isNonStriker) ? 'rgba(233,30,99,0.1)' : idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                <span className="w-6 text-white/20 text-[11px] tabular-nums">{idx + 1}</span>
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  {isStriker && <span style={{ color: '#e91e63', fontSize: '10px', fontWeight: 900 }}>▶</span>}
+                  <span className={`font-display font-bold text-[13px] uppercase tracking-wide truncate ${hasBatted ? 'text-white' : 'text-white/25'}`}>{p.name}</span>
+                  {isNotOut && <span className="text-[10px] font-black px-1 rounded flex-shrink-0" style={{ color: '#66bb6a', background: 'rgba(102,187,106,0.15)' }}>*</span>}
+                </div>
+                <div className="w-36 text-center">{hasBatted && p.isOut && <span className="text-white/30 text-[10px] italic truncate block">{p.dismissalType}{p.dismissedBy ? ` b ${p.dismissedBy}` : ''}</span>}</div>
+                <span className={`w-10 text-right font-display font-black text-base tabular-nums ${hasBatted ? 'text-white' : 'text-white/15'}`}>{hasBatted ? p.runs : ''}</span>
+                <span className={`w-10 text-right text-sm tabular-nums ${hasBatted ? 'text-white/50' : 'text-white/15'}`}>{hasBatted ? p.ballsFaced : ''}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between px-5 py-2" style={{ background: `linear-gradient(135deg, ${btColor}cc, ${btColor}88)` }}>
+          <span className="font-display text-white font-bold text-xs uppercase tracking-widest">{match.matchType}</span>
+          <span className="text-white text-xs font-bold">EXTRAS: {extras}</span>
+          <span className="font-display font-black text-white text-lg">{inn.runs}/{inn.wickets}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // ============ BOWLING SUMMARY ============
+  const BowlingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
+    const inn = match.innings[inningsIdx];
+    if (!inn) return <p className="text-white/40 text-center p-8">Innings not available</p>;
+    const blt = inn.bowlingTeamIndex === 0 ? match.team1 : match.team2;
+    const bltColor = inn.bowlingTeamIndex === 0 ? t1Color : t2Color;
+    const bowlers = blt.players.filter(p => p.bowlingBalls > 0);
+    return (
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
+        <div className="flex items-center gap-3 px-5 py-3" style={{ background: `linear-gradient(135deg, ${bltColor}dd, ${bltColor}88)` }}>
+          {blt.logo && <img src={blt.logo} alt={blt.name} className="w-8 h-8 object-contain" />}
+          <span className="font-display text-lg font-black text-white uppercase tracking-wider">{blt.name} - BOWLING</span>
+        </div>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+        <div className="px-5 py-2 text-[11px] text-white/40 font-bold flex tracking-wider" style={{ background: 'linear-gradient(180deg, #150f50, #0d0a38)' }}>
+          <span className="flex-1">BOWLER</span><span className="w-14 text-right">O</span><span className="w-14 text-right">R</span><span className="w-14 text-right">W</span><span className="w-16 text-right">ECON</span>
+        </div>
+        <div style={{ background: 'linear-gradient(180deg, #150f50, #0d0a38)' }}>
+          {bowlers.map((p, idx) => (
+            <div key={p.id} className={`flex items-center px-5 py-2 border-b border-white/5 ${idx % 2 === 0 ? 'bg-white/[0.02]' : ''}`}>
+              <span className="font-display font-bold text-sm text-white flex-1 uppercase tracking-wide">{p.name}</span>
+              <span className="w-14 text-right text-white text-sm tabular-nums">{getOversString(p.bowlingBalls, match.ballsPerOver)}</span>
+              <span className="w-14 text-right text-white text-sm tabular-nums">{p.bowlingRuns}</span>
+              <span className="w-14 text-right font-bold text-sm tabular-nums" style={{ color: p.bowlingWickets > 0 ? '#e91e63' : '#e91e6355' }}>{p.bowlingWickets}</span>
+              <span className="w-16 text-right text-white/50 text-sm tabular-nums">{getRunRate(p.bowlingRuns, p.bowlingBalls, match.ballsPerOver)}</span>
+            </div>
+          ))}
+          {bowlers.length === 0 && <p className="text-center text-white/30 py-6 text-sm font-display tracking-wider">NO BOWLING DATA YET</p>}
+        </div>
+        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
+      </div>
+    );
+  };
+
   // ============ VS BANNER ============
   const VSBanner = () => (
     <VSBannerDisplay
@@ -495,7 +587,6 @@ const ScoreboardInner = () => {
       theme={vsThemeDark}
     />
   );
-  };
 
   // ============ TARGET BANNER ============
   const TargetBanner = () => {
