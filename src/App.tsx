@@ -13,6 +13,7 @@ import MatchController from "./pages/MatchController";
 import Scoreboard from "./pages/Scoreboard";
 import Scoreboard2 from "./pages/Scoreboard2";
 import Scoreboard3 from "./pages/Scoreboard3";
+import Scoreboard4 from "./pages/Scoreboard4";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/scoreboard/:id" element={<Scoreboard />} />
             <Route path="/scoreboard2/:id" element={<Scoreboard2 />} />
             <Route path="/scoreboard3/:id" element={<Scoreboard3 />} />
+            <Route path="/scoreboard4/:id" element={<Scoreboard4 />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
