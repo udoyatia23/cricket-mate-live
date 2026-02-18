@@ -28,6 +28,16 @@
 </head>
 
   <body>
+    <!-- Force transparent body for PRISM Live / mobile broadcast WebViews on scoreboard routes -->
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        if (/\/(scoreboard|scoreboard2|scoreboard3|scoreboard4)\//.test(path)) {
+          document.documentElement.style.cssText = 'background:transparent!important;background-color:transparent!important;';
+          document.documentElement.classList.add('scoreboard-page');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
