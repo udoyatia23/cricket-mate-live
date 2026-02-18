@@ -167,9 +167,10 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
           right: 0,
           bottom: 0,
           zIndex: 200,
-          transform: animIn ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.45s cubic-bezier(0.34, 1.20, 0.64, 1)',
+          transform: animIn ? 'translateY(0)' : 'translateY(102%)',
+          transition: 'transform 0.42s cubic-bezier(0.34, 1.10, 0.64, 1)',
           pointerEvents: 'none',
+          willChange: 'transform',
         }}
       >
         {/* Gold top border */}
@@ -183,7 +184,7 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
         {/* Main banner */}
         <div style={{
           position: 'relative',
-          height: '68px',
+          height: '80px',
           background: cfg.bgGradient,
           overflow: 'hidden',
           display: 'flex',
@@ -211,7 +212,7 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
                   style={{
                     fontFamily: 'Oswald, system-ui, sans-serif',
                     fontWeight: 900,
-                    fontSize: '52px',
+                    fontSize: '62px',
                     color: cfg.ghostColor,
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
@@ -227,30 +228,31 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
           {/* Left decorative icon */}
           <div style={{
             position: 'absolute',
-            left: '70px',
+            left: '80px',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
           }}>
-            <IconElement type={cfg.iconType} color={cfg.iconColor} size={32} animate />
+            <IconElement type={cfg.iconType} color={cfg.iconColor} size={38} animate />
           </div>
 
           {/* Right decorative icon */}
           <div style={{
             position: 'absolute',
-            right: '70px',
+            right: '80px',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
           }}>
-            <IconElement type={cfg.iconType} color={cfg.iconColor} size={32} animate />
+            <IconElement type={cfg.iconType} color={cfg.iconColor} size={38} animate />
           </div>
 
           {/* CENTER: Main label */}
           <div style={{
             position: 'absolute',
             left: '50%',
-            transform: 'translateX(-50%)',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -259,10 +261,10 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
             <span style={{
               fontFamily: 'Oswald, system-ui, sans-serif',
               fontWeight: 900,
-              fontSize: '44px',
+              fontSize: '52px',
               color: cfg.textColor,
               textTransform: 'uppercase',
-              letterSpacing: '0.12em',
+              letterSpacing: '0.14em',
               textShadow: '0 2px 20px rgba(0,0,0,0.8), 0 0 40px rgba(255,255,255,0.15)',
               animation: 'bcCenterPulse 1.2s ease-in-out infinite',
               whiteSpace: 'nowrap',

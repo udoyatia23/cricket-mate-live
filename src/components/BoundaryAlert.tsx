@@ -93,17 +93,18 @@ export default function BoundaryAlert({ snapshot, variant = 'dark', barHeight = 
   // Variant-specific border glow
   const boxShadow = `0 8px 32px rgba(0,0,0,0.6), 0 0 0 3px ${borderColor}, 0 0 24px ${glowColor}`;
 
-  // ticker ~22px + 5px gold line + barHeight = total offset from bottom
-  const bottomOffset = barHeight + 22 + 5;
+  // Positioned just above the broadcast banner (which covers the scoreboard bar at bottom)
+  // Banner total height: 5px top border + 80px main + 5px bottom = 90px
+  const bottomOffset = 90;
 
   return (
     <div
       className="pointer-events-none"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         bottom: `${bottomOffset}px`,
         left: '0',
-        zIndex: 50,
+        zIndex: 210,
         transform: animIn ? 'translateY(0px)' : 'translateY(40px)',
         transition: 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease',
         opacity: animIn ? 1 : 0,
