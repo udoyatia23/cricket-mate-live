@@ -15,6 +15,11 @@ import Scoreboard2 from "./pages/Scoreboard2";
 import Scoreboard3 from "./pages/Scoreboard3";
 import Scoreboard4 from "./pages/Scoreboard4";
 import NotFound from "./pages/NotFound";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminRoute from "./pages/admin/AdminRoute";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +40,11 @@ const App = () => (
             <Route path="/scoreboard2/:id" element={<Scoreboard2 />} />
             <Route path="/scoreboard3/:id" element={<Scoreboard3 />} />
             <Route path="/scoreboard4/:id" element={<Scoreboard4 />} />
+            {/* Admin Panel */}
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+            <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
@@ -44,3 +54,4 @@ const App = () => (
 );
 
 export default App;
+
