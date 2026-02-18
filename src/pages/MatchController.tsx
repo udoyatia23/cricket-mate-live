@@ -182,9 +182,10 @@ const MatchController = () => {
       totalSixes: sixes,
       boundaryAlert: boundaryAlert || undefined,
       tournamentId: m.tournamentId,
+      tournamentName: tournamentName,
       ts: Date.now(),
     };
-  }, [tournamentVenue, countBoundaries]);
+  }, [tournamentVenue, tournamentName, countBoundaries]);
 
   // Debounced save to matches table (heavy, only every 3s)
   const debouncedMatchSave = useCallback((m: Match) => {

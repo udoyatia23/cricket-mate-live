@@ -55,5 +55,7 @@ export interface ScoreboardSnapshot {
   upcomingMatchNo?: number;
   // Tournament ID (for tour stats display modes)
   tournamentId?: string;
+  // Tournament name (for VS banner)
+  tournamentName?: string;
   ts: number;
 }

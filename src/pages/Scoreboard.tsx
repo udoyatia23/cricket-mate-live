@@ -10,6 +10,7 @@ import { getMatch } from '@/lib/store';
 import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
+import VSBannerDisplay, { vsThemeDark } from '@/components/VSBannerDisplay';
 
 // ====== ErrorBoundary to prevent blank screen in OBS/PRISM ======
 class ScoreboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -482,198 +483,46 @@ const ScoreboardInner = () => {
 
   // ============ VS BANNER ============
   const VSBanner = () => (
-    <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-      <div className="h-[2px] w-full bg-white/80" />
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-      <div className="relative flex items-stretch" style={{ height: '60px', background: 'linear-gradient(180deg, #2d2272 0%, #150f50 100%)' }}>
-        {/* Team 1 */}
-        <div className={`flex items-center relative overflow-hidden flex-1 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}>
-          <div className="h-full flex items-center justify-center px-3 flex-shrink-0 relative z-10" style={{ backgroundColor: t1Color, minWidth: '60px' }}>
-            <TeamFlag team={match.team1} size={36} />
-          </div>
-          <div className="absolute left-[60px] top-0 bottom-0 w-6 z-[5]" style={{ background: t1Color, clipPath: 'polygon(0 0, 100% 0, 0 100%)' }} />
-          <span className="relative z-10 font-display text-2xl lg:text-3xl font-black text-white uppercase tracking-[0.12em] pl-6">{match.team1.name}</span>
-        </div>
-        {/* Center */}
-        <div className={`relative flex-shrink-0 flex items-center justify-center z-20 w-[200px] transition-all duration-700 delay-400 ${vsAnimIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
-          <div className="absolute -left-[14px] top-0 bottom-0"><ChevronSeparator /></div>
-          <div className="absolute -right-[14px] top-0 bottom-0"><ChevronSeparator /></div>
-          <div className="relative z-10 text-center">
-            <div className="font-display text-[10px] text-amber-400 font-bold tracking-[0.2em] uppercase">{match.matchType || 'MATCH'}</div>
-            <div className="font-display text-white text-sm font-black tracking-wider">MATCH #{match.matchNo || 1}</div>
-            <div className="font-display text-[9px] text-white/50 tracking-widest">{match.overs} OVERS</div>
-          </div>
-        </div>
-        {/* Team 2 */}
-        <div className={`flex items-center justify-end relative overflow-hidden flex-1 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}>
-          <span className="relative z-10 font-display text-2xl lg:text-3xl font-black text-white uppercase tracking-[0.12em] pr-6">{match.team2.name}</span>
-          <div className="absolute right-[60px] top-0 bottom-0 w-6 z-[5]" style={{ background: t2Color, clipPath: 'polygon(100% 0, 100% 100%, 0 0)' }} />
-          <div className="h-full flex items-center justify-center px-3 flex-shrink-0 relative z-10" style={{ backgroundColor: t2Color, minWidth: '60px' }}>
-            <TeamFlag team={match.team2} size={36} />
-          </div>
-        </div>
-      </div>
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-      <div className="h-[2px] w-full bg-white/80" />
-    </div>
+    <VSBannerDisplay
+      team1={{ name: s ? s.t1.name : match.team1.name, color: t1Color, logo: match.team1.logo }}
+      team2={{ name: s ? s.t2.name : match.team2.name, color: t2Color, logo: match.team2.logo }}
+      tournamentName={s?.tournamentName}
+      matchType={s?.matchType || match.matchType}
+      matchNo={s?.matchNo || match.matchNo}
+      tossWonBy={s?.tossWonBy ?? match.tossWonBy ?? 0}
+      optedTo={s?.optedTo || match.optedTo || 'bat'}
+      animIn={vsAnimIn}
+      theme={vsThemeDark}
+    />
   );
+  };
 
   // ============ TARGET BANNER ============
   const TargetBanner = () => {
     if (!target || !currentInnings || !battingTeam) return <VSBanner />;
     const need = Math.max(0, target - currentInnings.runs);
     const remainBalls = match.overs * match.ballsPerOver - currentInnings.balls;
-    const rrr = remainBalls > 0 ? ((need / remainBalls) * match.ballsPerOver).toFixed(2) : '0.00';
+    const rrr = remainBalls > 0 ? ((need / remainBalls) * (s?.bpo || match.ballsPerOver)).toFixed(2) : '0.00';
+    const batTeamName = s ? (s.inn.batIdx === 0 ? s.t1.name : s.t2.name) : battingTeam.name;
     return (
       <div className="w-full">
         <div className="h-[2px] w-full bg-white/80" />
         <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-        <div className="relative flex items-stretch h-14" style={{ background: 'linear-gradient(180deg, #2d2272 0%, #150f50 100%)' }}>
-          <div className="flex-1 flex items-center justify-center gap-6 px-4">
-            <span className="font-display text-xl font-black text-white uppercase">{battingTeam.name}</span>
-            <div className="text-center">
-              <p className="font-display text-white font-bold text-sm uppercase">NEED <span className="text-amber-300 text-lg font-black">{need}</span> RUNS FROM <span className="text-amber-300 text-lg font-black">{remainBalls}</span> BALLS</p>
-              <p className="text-white/50 text-xs font-display">REQ. RR: <span className="text-amber-300">{rrr}</span></p>
-            </div>
-            <span className="font-display text-xl font-black text-white uppercase">{bowlingTeam?.name}</span>
+        <div className="relative flex items-center justify-center" style={{ height: '62px', background: 'linear-gradient(180deg, #2d2272 0%, #150f50 100%)' }}>
+          <div className="text-center px-4">
+            <p className="text-white/60 text-[9px] font-display tracking-widest uppercase">Target</p>
+            <p className="font-display font-black text-white text-xl md:text-2xl">{target} runs</p>
           </div>
-        </div>
-        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-        <div className="h-[2px] w-full bg-white/80" />
-      </div>
-    );
-  };
-
-  // ============ BATTING SUMMARY ============
-  const BattingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
-    const inn = match.innings[inningsIdx];
-    if (!inn) return <p className="text-white text-center p-8">Innings not available</p>;
-    const bt = inn.battingTeamIndex === 0 ? match.team1 : match.team2;
-    const extras = inn.extras.wides + inn.extras.noBalls + inn.extras.byes + inn.extras.legByes;
-    const btColor = inn.battingTeamIndex === 0 ? t1Color : t2Color;
-    // Show players who have batted or are currently batting first (in batting order),
-    // then fill remaining slots as empty — never show bowlers who haven't batted
-    const battedPlayers = bt.players.filter(p =>
-      p.ballsFaced > 0 || p.isOut || p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId
-    );
-    const allSlots: (typeof battedPlayers[0] | null)[] = [
-      ...battedPlayers,
-      ...Array.from({ length: Math.max(0, 11 - battedPlayers.length) }, () => null),
-    ];
-    return (
-      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
-        {/* Header */}
-        <div className="relative" style={{ background: `linear-gradient(135deg, ${btColor}ee, ${btColor}99)` }}>
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0L40 20L20 40L0 20Z' fill='white' fill-opacity='0.1'/%3E%3C/svg%3E")`, backgroundSize: '30px 30px' }} />
-          <div className="flex items-center justify-between px-5 py-3 relative z-10">
-            <div className="flex items-center gap-3">
-              <TeamFlag team={bt} size={32} />
-              <span className="font-display text-lg md:text-xl font-black text-white uppercase tracking-wider drop-shadow-lg">{bt.name} — BATTING SUMMARY</span>
-            </div>
-            <div className="font-display text-xl md:text-2xl font-black text-white px-4 py-1 rounded-md" style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}>{inn.runs}-{inn.wickets}</div>
+          <div className="mx-6 w-px self-stretch bg-white/20" />
+          <div className="text-center">
+            <p className="text-white/60 text-[9px] font-display tracking-widest uppercase">Need</p>
+            <p className="font-display font-bold text-amber-300 text-base md:text-xl">{need} off {remainBalls}b</p>
           </div>
-        </div>
-        {/* Gold accent */}
-        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-        {/* Column headers */}
-        <div className="px-5 py-1.5 text-[11px] text-white/50 font-bold flex tracking-wider" style={{ background: 'linear-gradient(180deg, #1e1660 0%, #150f50 100%)' }}>
-          <span className="w-6 text-white/30 text-[10px]">#</span>
-          <span className="flex-1">BATSMAN</span>
-          <span className="w-32 text-center text-[10px]">DISMISSAL</span>
-          <span className="w-10 text-right">R</span>
-          <span className="w-10 text-right">B</span>
-        </div>
-        {/* All 11 player rows */}
-        <div style={{ background: 'linear-gradient(180deg, #150f50 0%, #0d0a38 100%)' }}>
-          {allSlots.map((p, idx) => {
-            if (!p) {
-              // Empty slot
-              return (
-                <div key={`empty-${idx}`} className="flex items-center px-5 border-b border-white/5" style={{ height: '32px', background: idx % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent' }}>
-                  <span className="w-6 text-white/15 text-[11px] font-bold tabular-nums">{idx + 1}</span>
-                  <div className="flex-1 h-[1px] rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
-                </div>
-              );
-            }
-            const isStriker = p.id === inn.currentStrikerId;
-            const isNonStriker = p.id === inn.currentNonStrikerId;
-            const isNotOut = !p.isOut && (isStriker || isNonStriker || (inn.isComplete && !p.isOut && p.ballsFaced > 0));
-            const hasBatted = p.ballsFaced > 0 || p.isOut;
-            const isCurrentlyBatting = isStriker || isNonStriker;
-            return (
-              <div key={p.id}
-                className="flex items-center px-5 border-b border-white/5"
-                style={{
-                  height: '34px',
-                  background: isCurrentlyBatting
-                    ? 'rgba(255,255,255,0.06)'
-                    : idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                }}>
-                <span className="w-6 text-white/30 text-[11px] font-bold tabular-nums">{idx + 1}</span>
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  {isStriker && <span style={{ color: '#f5c842', fontSize: '10px', fontWeight: 900, flexShrink: 0 }}>▶</span>}
-                  <span className={`font-display font-bold text-[13px] uppercase tracking-wide truncate ${hasBatted ? 'text-white' : 'text-white/40'}`}>
-                    {p.name}
-                  </span>
-                  {isNotOut && (
-                    <span className="text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: '#4caf50', background: 'rgba(76,175,80,0.15)' }}>NOT OUT</span>
-                  )}
-                </div>
-                {/* Dismissal info */}
-                <div className="w-32 text-center">
-                  {hasBatted && p.isOut && (
-                    <span className="text-white/35 text-[10px] italic truncate block">{p.dismissalType}{p.dismissedBy ? ` b ${p.dismissedBy}` : ''}</span>
-                  )}
-                </div>
-                {/* Stats */}
-                <span className={`w-10 text-right font-display font-black text-base tabular-nums ${hasBatted ? 'text-white' : 'text-white/15'}`}>{hasBatted ? p.runs : ''}</span>
-                <span className={`w-10 text-right text-sm tabular-nums ${hasBatted ? 'text-white/50' : 'text-white/15'}`}>{hasBatted ? p.ballsFaced : ''}</span>
-              </div>
-            );
-          })}
-        </div>
-        {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-2.5" style={{ background: 'linear-gradient(135deg, #1e1660, #150f50)' }}>
-          <span className="font-display text-white/70 font-bold text-xs uppercase tracking-widest">{match.matchType}</span>
-          <span className="text-white/60 text-xs font-bold">EXTRAS: {extras}</span>
-          <span className="text-white/60 text-xs font-bold">{getOversString(inn.balls, match.ballsPerOver)} OV</span>
-          <span className="font-display font-black text-white text-xl drop-shadow-lg">{inn.runs}/{inn.wickets}</span>
-        </div>
-      </div>
-    );
-  };
-
-  // ============ BOWLING SUMMARY ============
-  const BowlingSummary = ({ inningsIdx }: { inningsIdx: number }) => {
-    const inn = match.innings[inningsIdx];
-    if (!inn) return <p className="text-white text-center p-8">Innings not available</p>;
-    const blt = inn.bowlingTeamIndex === 0 ? match.team1 : match.team2;
-    const bltColor = inn.bowlingTeamIndex === 0 ? t1Color : t2Color;
-    const bowlers = blt.players.filter(p => p.bowlingBalls > 0);
-    return (
-      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
-        {/* Header */}
-        <div className="relative" style={{ background: `linear-gradient(135deg, ${bltColor}dd, ${bltColor}88)` }}>
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0L40 20L20 40L0 20Z' fill='white' fill-opacity='0.1'/%3E%3C/svg%3E")`, backgroundSize: '30px 30px' }} />
-          <div className="flex items-center gap-3 px-5 py-3 relative z-10">
-            <TeamFlag team={blt} size={32} />
-            <span className="font-display text-lg md:text-xl font-black text-white uppercase tracking-wider drop-shadow-lg">{blt.name} - BOWLING</span>
+          <div className="mx-6 w-px self-stretch bg-white/20" />
+          <div className="text-center">
+            <p className="text-white/60 text-[9px] font-display tracking-widest uppercase">RRR</p>
+            <p className="font-display font-bold text-amber-300 text-base md:text-xl">{rrr}</p>
           </div>
-        </div>
-        <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
-        <div className="px-5 py-2 text-[11px] text-white/50 font-bold flex tracking-wider" style={{ background: 'linear-gradient(180deg, #1e1660 0%, #150f50 100%)' }}>
-          <span className="flex-1">BOWLER</span><span className="w-14 text-right">O</span><span className="w-14 text-right">R</span><span className="w-14 text-right">W</span><span className="w-16 text-right">ECON</span>
-        </div>
-        <div style={{ background: 'linear-gradient(180deg, #150f50 0%, #0d0a38 100%)' }}>
-          {bowlers.map((p, idx) => (
-            <div key={p.id} className={`flex items-center px-5 py-2 border-b border-white/5 ${idx % 2 === 0 ? 'bg-white/[0.02]' : ''}`}>
-              <span className="font-display font-bold text-sm text-white flex-1 uppercase tracking-wide">{p.name}</span>
-              <span className="w-14 text-right text-white text-sm tabular-nums">{getOversString(p.bowlingBalls, match.ballsPerOver)}</span>
-              <span className="w-14 text-right text-white text-sm tabular-nums">{p.bowlingRuns}</span>
-              <span className="w-14 text-right font-bold text-sm tabular-nums" style={{ color: p.bowlingWickets > 0 ? '#e91e63' : '#e91e6388' }}>{p.bowlingWickets}</span>
-              <span className="w-16 text-right text-white/50 text-sm tabular-nums">{getRunRate(p.bowlingRuns, p.bowlingBalls, match.ballsPerOver)}</span>
-            </div>
-          ))}
         </div>
         <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #c17a1a, #e8a832, #f5c842, #e8a832, #c17a1a)' }} />
       </div>
@@ -784,12 +633,9 @@ const ScoreboardInner = () => {
       case 'target': return <TargetBanner />;
       case '1bat': return <BattingSummary inningsIdx={0} />;
       case '2bat': return <BattingSummary inningsIdx={1} />;
-      case '1ball': case 'b1': return <BowlingSummary inningsIdx={0} />;
-      case '2ball': case 'b2': return <BowlingSummary inningsIdx={1} />;
-      case 'bowler': return bowler ? <BowlingSummary inningsIdx={match.currentInningsIndex} /> : <DefaultScoreBar />;
+      case '1ball': return <BowlingSummary inningsIdx={0} />;
+      case '2ball': return <BowlingSummary inningsIdx={1} />;
       case 'fow': return <FallOfWickets />;
-      case 'partnership': return <Partnership />;
-      case 'teams': return <TeamsPlayers />;
       case 'summary': return <MatchSummary />;
       case 'upcoming': return <UpcomingMatchDisplay snapshot={snapshot} variant="dark" />;
       case 'score': case 'default': default: return <DefaultScoreBar />;
