@@ -53,5 +53,7 @@ export interface ScoreboardSnapshot {
   upcomingTeam2?: string;
   upcomingMatchType?: string;
   upcomingMatchNo?: number;
+  // Tournament ID (for tour stats display modes)
+  tournamentId?: string;
   ts: number;
 }

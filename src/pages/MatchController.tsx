@@ -181,6 +181,7 @@ const MatchController = () => {
       totalFours: fours,
       totalSixes: sixes,
       boundaryAlert: boundaryAlert || undefined,
+      tournamentId: m.tournamentId,
       ts: Date.now(),
     };
   }, [tournamentVenue, countBoundaries]);
@@ -1229,12 +1230,12 @@ const MatchController = () => {
         <Section>
           <h3 className="font-display text-center font-bold mb-3">TOUR STATS CONTROLLER <span className="text-red-400">(ONLY FOR THEME 10 to 15)</span></h3>
           <div className="flex flex-wrap gap-2 justify-center">
-            <ControlBtn label="POINTS TABLE" color="bg-green-600 text-white" onClick={() => {}} />
-            <ControlBtn label="PT (TIED POINT +1)" color="bg-red-600 text-white" onClick={() => {}} />
-            <ControlBtn label="TOP BATTERS" color="bg-green-700 text-white" onClick={() => {}} />
-            <ControlBtn label="TOP BOWLERS" color="bg-blue-600 text-white" onClick={() => {}} />
-            <ControlBtn label="TOP 4/6 STRIKERS" color="bg-blue-700 text-white" onClick={() => {}} />
-            <ControlBtn label="TOP PLAYER OF SERIES" color="bg-red-700 text-white" onClick={() => {}} />
+            <ControlBtn label="POINTS TABLE" color="bg-green-600 text-white" onClick={() => sendDisplay('tour_points' as any)} active={activeDisplay === ('tour_points' as any)} />
+            <ControlBtn label="PT (TIED POINT +1)" color="bg-red-600 text-white" onClick={() => sendDisplay('tour_points_tied' as any)} active={activeDisplay === ('tour_points_tied' as any)} />
+            <ControlBtn label="TOP BATTERS" color="bg-green-700 text-white" onClick={() => sendDisplay('tour_batters' as any)} active={activeDisplay === ('tour_batters' as any)} />
+            <ControlBtn label="TOP BOWLERS" color="bg-blue-600 text-white" onClick={() => sendDisplay('tour_bowlers' as any)} active={activeDisplay === ('tour_bowlers' as any)} />
+            <ControlBtn label="TOP 4/6 STRIKERS" color="bg-blue-700 text-white" onClick={() => sendDisplay('tour_boundaries' as any)} active={activeDisplay === ('tour_boundaries' as any)} />
+            <ControlBtn label="TOP PLAYER OF SERIES" color="bg-red-700 text-white" onClick={() => sendDisplay('tour_series' as any)} active={activeDisplay === ('tour_series' as any)} />
           </div>
         </Section>
 
