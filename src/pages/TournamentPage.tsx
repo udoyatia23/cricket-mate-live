@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Trophy, Plus, ArrowLeft, Play, Eye, Trash2, ImagePlus, BarChart2 } from 'lucide-react';
+import { Trophy, Plus, ArrowLeft, Play, Eye, Trash2, ImagePlus, BarChart2, Loader2, RefreshCw } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tournament, Match } from '@/types/cricket';
 import { getTournament, getMatchesForTournament, addMatch, deleteMatch } from '@/lib/store';
 import TournamentStats from '@/components/TournamentStats';
@@ -15,6 +16,8 @@ const TournamentPage = () => {
   const { id } = useParams<{ id: string }>();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creatingMatch, setCreatingMatch] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'matches' | 'stats'>('matches');
 
@@ -31,23 +34,27 @@ const TournamentPage = () => {
 
   const loadData = async () => {
     if (!id) return;
+    setLoading(true);
     const t = await getTournament(id);
     setTournament(t || null);
     const m = await getMatchesForTournament(id);
     setMatches(m);
+    setLoading(false);
   };
 
   useEffect(() => { loadData(); }, [id]);
 
   const refreshMatches = async () => {
-    if (id) {
-      const m = await getMatchesForTournament(id);
-      setMatches(m);
-    }
+    if (!id) return;
+    setLoading(true);
+    const m = await getMatchesForTournament(id);
+    setMatches(m);
+    setLoading(false);
   };
 
   const handleCreateMatch = async () => {
-    if (!team1Name.trim() || !team2Name.trim() || !id) return;
+    if (!team1Name.trim() || !team2Name.trim() || !id || creatingMatch) return;
+    setCreatingMatch(true);
     const match: Match = {
       id: crypto.randomUUID(),
       tournamentId: id,
@@ -70,6 +77,7 @@ const TournamentPage = () => {
     setTeam2Name('');
     setTeam1Logo('');
     setTeam2Logo('');
+    setCreatingMatch(false);
     setOpen(false);
   };
 
@@ -77,6 +85,18 @@ const TournamentPage = () => {
     await deleteMatch(matchId);
     await refreshMatches();
   };
+
+  // Show full-page spinner while loading tournament for the first time
+  if (loading && !tournament) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm">Loading tournament...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!tournament) {
     return (
@@ -149,143 +169,181 @@ const TournamentPage = () => {
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-display text-2xl font-bold">Matches</h2>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button><Plus className="mr-2 h-4 w-4" />Create Match</Button>
-                </DialogTrigger>
-                <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="font-display text-xl">New Match</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Team 1</Label>
-                        <Input value={team1Name} onChange={e => setTeam1Name(e.target.value)} placeholder="Team 1 Name" className="mt-1 bg-secondary" />
-                        <Label className="mt-2 block text-xs text-muted-foreground">Team 1 Logo</Label>
-                        <div className="mt-1 flex items-center gap-2">
-                          {team1Logo ? (
-                            <img src={team1Logo} alt="T1 Logo" className="w-10 h-10 rounded object-cover border border-border" />
-                          ) : (
-                            <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
-                              <ImagePlus className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <label className="cursor-pointer text-xs text-primary hover:underline">
-                            {team1Logo ? 'Change' : 'Upload'}
-                            <input type="file" accept="image/*" className="hidden" onChange={e => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (ev) => setTeam1Logo(ev.target?.result as string);
-                                reader.readAsDataURL(file);
-                              }
-                            }} />
-                          </label>
-                          {team1Logo && <button onClick={() => setTeam1Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={refreshMatches} disabled={loading} title="Refresh matches">
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+                <Dialog open={open} onOpenChange={setOpen}>
+                  <DialogTrigger asChild>
+                    <Button><Plus className="mr-2 h-4 w-4" />Create Match</Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="font-display text-xl">New Match</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Team 1</Label>
+                          <Input value={team1Name} onChange={e => setTeam1Name(e.target.value)} placeholder="Team 1 Name" className="mt-1 bg-secondary" />
+                          <Label className="mt-2 block text-xs text-muted-foreground">Team 1 Logo</Label>
+                          <div className="mt-1 flex items-center gap-2">
+                            {team1Logo ? (
+                              <img src={team1Logo} alt="T1 Logo" className="w-10 h-10 rounded object-cover border border-border" />
+                            ) : (
+                              <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
+                                <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                            )}
+                            <label className="cursor-pointer text-xs text-primary hover:underline">
+                              {team1Logo ? 'Change' : 'Upload'}
+                              <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => setTeam1Logo(ev.target?.result as string);
+                                  reader.readAsDataURL(file);
+                                }
+                              }} />
+                            </label>
+                            {team1Logo && <button onClick={() => setTeam1Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Team 2</Label>
+                          <Input value={team2Name} onChange={e => setTeam2Name(e.target.value)} placeholder="Team 2 Name" className="mt-1 bg-secondary" />
+                          <Label className="mt-2 block text-xs text-muted-foreground">Team 2 Logo</Label>
+                          <div className="mt-1 flex items-center gap-2">
+                            {team2Logo ? (
+                              <img src={team2Logo} alt="T2 Logo" className="w-10 h-10 rounded object-cover border border-border" />
+                            ) : (
+                              <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
+                                <ImagePlus className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                            )}
+                            <label className="cursor-pointer text-xs text-primary hover:underline">
+                              {team2Logo ? 'Change' : 'Upload'}
+                              <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (ev) => setTeam2Logo(ev.target?.result as string);
+                                  reader.readAsDataURL(file);
+                                }
+                              }} />
+                            </label>
+                            {team2Logo && <button onClick={() => setTeam2Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Overs</Label>
+                          <Select value={overs} onValueChange={setOvers}>
+                            <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {['5','6','10','15','20','50'].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Match No</Label>
+                          <Input type="number" value={matchNo} onChange={e => setMatchNo(e.target.value)} className="mt-1 bg-secondary" />
+                        </div>
+                        <div>
+                          <Label>Balls/Over</Label>
+                          <Select value={ballsPerOver} onValueChange={setBallsPerOver}>
+                            <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {['4','5','6','8'].map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <div>
-                        <Label>Team 2</Label>
-                        <Input value={team2Name} onChange={e => setTeam2Name(e.target.value)} placeholder="Team 2 Name" className="mt-1 bg-secondary" />
-                        <Label className="mt-2 block text-xs text-muted-foreground">Team 2 Logo</Label>
-                        <div className="mt-1 flex items-center gap-2">
-                          {team2Logo ? (
-                            <img src={team2Logo} alt="T2 Logo" className="w-10 h-10 rounded object-cover border border-border" />
-                          ) : (
-                            <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center">
-                              <ImagePlus className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <label className="cursor-pointer text-xs text-primary hover:underline">
-                            {team2Logo ? 'Change' : 'Upload'}
-                            <input type="file" accept="image/*" className="hidden" onChange={e => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (ev) => setTeam2Logo(ev.target?.result as string);
-                                reader.readAsDataURL(file);
-                              }
-                            }} />
-                          </label>
-                          {team2Logo && <button onClick={() => setTeam2Logo('')} className="text-xs text-destructive hover:underline">Remove</button>}
-                        </div>
+                        <Label>Toss Won By</Label>
+                        <RadioGroup value={tossWonBy} onValueChange={setTossWonBy} className="flex gap-6 mt-2">
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="0" id="toss-t1" />
+                            <Label htmlFor="toss-t1">{team1Name || 'Team 1'}</Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="1" id="toss-t2" />
+                            <Label htmlFor="toss-t2">{team2Name || 'Team 2'}</Label>
+                          </div>
+                        </RadioGroup>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <Label>Overs</Label>
-                        <Select value={overs} onValueChange={setOvers}>
+                        <Label>Opted To</Label>
+                        <RadioGroup value={optedTo} onValueChange={(v) => setOptedTo(v as 'bat' | 'bowl')} className="flex gap-6 mt-2">
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="bat" id="opt-bat" />
+                            <Label htmlFor="opt-bat">Bat</Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value="bowl" id="opt-bowl" />
+                            <Label htmlFor="opt-bowl">Bowl</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      <div>
+                        <Label>Match Type</Label>
+                        <Select value={matchType} onValueChange={setMatchType}>
                           <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {['5','6','10','15','20','50'].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                            <SelectItem value="group">Group Stage</SelectItem>
+                            <SelectItem value="semi">Semi Final</SelectItem>
+                            <SelectItem value="final">Final</SelectItem>
+                            <SelectItem value="friendly">Friendly</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label>Match No</Label>
-                        <Input type="number" value={matchNo} onChange={e => setMatchNo(e.target.value)} className="mt-1 bg-secondary" />
-                      </div>
-                      <div>
-                        <Label>Balls/Over</Label>
-                        <Select value={ballsPerOver} onValueChange={setBallsPerOver}>
-                          <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {['4','5','6','8'].map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                      <div className="flex gap-3 justify-end pt-2">
+                        <Button variant="outline" onClick={() => setOpen(false)} disabled={creatingMatch}>Cancel</Button>
+                        <Button onClick={handleCreateMatch} disabled={creatingMatch}>
+                          {creatingMatch ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Creating match...
+                            </>
+                          ) : 'Create Match'}
+                        </Button>
                       </div>
                     </div>
-                    <div>
-                      <Label>Toss Won By</Label>
-                      <RadioGroup value={tossWonBy} onValueChange={setTossWonBy} className="flex gap-6 mt-2">
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value="0" id="toss-t1" />
-                          <Label htmlFor="toss-t1">{team1Name || 'Team 1'}</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value="1" id="toss-t2" />
-                          <Label htmlFor="toss-t2">{team2Name || 'Team 2'}</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                    <div>
-                      <Label>Opted To</Label>
-                      <RadioGroup value={optedTo} onValueChange={(v) => setOptedTo(v as 'bat' | 'bowl')} className="flex gap-6 mt-2">
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value="bat" id="opt-bat" />
-                          <Label htmlFor="opt-bat">Bat</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value="bowl" id="opt-bowl" />
-                          <Label htmlFor="opt-bowl">Bowl</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                    <div>
-                      <Label>Match Type</Label>
-                      <Select value={matchType} onValueChange={setMatchType}>
-                        <SelectTrigger className="mt-1 bg-secondary"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="group">Group Stage</SelectItem>
-                          <SelectItem value="semi">Semi Final</SelectItem>
-                          <SelectItem value="final">Final</SelectItem>
-                          <SelectItem value="friendly">Friendly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex gap-3 justify-end pt-2">
-                      <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                      <Button onClick={handleCreateMatch}>Create Match</Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
 
-            {matches.length === 0 ? (
-              <div className="text-center py-20">
+            {/* Matches list or loading skeleton or empty state */}
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="gradient-card rounded-xl border border-border p-5 shadow-card">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-5 w-16 rounded" />
+                          <Skeleton className="h-4 w-28" />
+                        </div>
+                        <Skeleton className="h-6 w-56" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-9 w-24 rounded-md" />
+                        <Skeleton className="h-9 w-24 rounded-md" />
+                        <Skeleton className="h-9 w-9 rounded-md" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : matches.length === 0 ? (
+              <div className="text-center py-20 space-y-4">
                 <p className="text-muted-foreground text-lg">No matches yet. Create your first match!</p>
+                <Button variant="outline" size="sm" onClick={refreshMatches}>
+                  <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+                </Button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -334,4 +392,3 @@ const TournamentPage = () => {
 };
 
 export default TournamentPage;
-
