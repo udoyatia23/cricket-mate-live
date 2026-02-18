@@ -395,13 +395,10 @@ const Scoreboard4Inner = () => {
           {/* Separator */}
           <div className="flex-shrink-0 self-stretch" style={{ width: '2px', background: `linear-gradient(180deg, transparent, ${GOLD}80, transparent)` }} />
 
-          {/* MATCH TITLE / VENUE */}
-          <div className="flex items-center justify-center flex-1 px-4"
+          {/* MATCH TITLE / VENUE → rotating ticker */}
+          <div className="flex items-center justify-center flex-1 overflow-hidden"
             style={{ background: `linear-gradient(135deg, ${GREEN_DARK}, ${GREEN_MID})` }}>
-            <span className="font-display font-bold text-white uppercase tracking-widest text-center"
-              style={{ fontSize: '13px', opacity: 0.9 }}>
-              {venue ? venue.toUpperCase() : matchTitle}
-            </span>
+            <ScoreboardTicker snapshot={s} match={match} variant="dark" />
           </div>
 
           {/* Right chevron decoration */}
@@ -412,9 +409,6 @@ const Scoreboard4Inner = () => {
 
         {/* Gold divider line */}
         <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD} 30%, ${GOLD} 70%, ${GREEN_DARK})` }} />
-
-        {/* ── TICKER ROW ── rotating info: toss, CRR, RRR, WIN% */}
-        <ScoreboardTicker snapshot={s} match={match} variant="dark" />
 
         {/* ── BOTTOM ROW ── */}
         <div className="relative flex items-stretch w-full" style={{ height: '36px', background: `linear-gradient(180deg, #0a2a0a 0%, #071a07 100%)` }}>
