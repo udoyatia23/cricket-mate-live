@@ -342,6 +342,31 @@ const MatchController = () => {
     }
   };
 
+  // Manually trigger boundary alert on scoreboard for 5 seconds
+  const sendBoundaryAlert = (type: 'fours' | 'sixes') => {
+    if (!id || !match) return;
+    const { fours, sixes } = countBoundaries(match);
+    const snapshot = createSnapshot(match, undefined, type);
+    snapshot.displayMode = activeDisplay;
+    snapshot.totalFours = fours;
+    snapshot.totalSixes = sixes;
+    snapshot.boundaryAlert = type;
+    broadcastPayload({ snapshot });
+    (supabase.from('score_live') as any).upsert(
+      { match_id: id, snapshot, updated_at: new Date().toISOString() },
+      { onConflict: 'match_id' }
+    ).then(({ error }: any) => {
+      if (error) console.error('boundary alert upsert failed:', error);
+    });
+    // Auto-clear after 6s so it doesn't re-trigger on next snapshot
+    setTimeout(() => {
+      if (!match) return;
+      const cleanSnap = createSnapshot(match);
+      cleanSnap.displayMode = activeDisplay;
+      broadcastPayload({ snapshot: cleanSnap });
+    }, 6000);
+  };
+
   if (!match) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1086,6 +1111,25 @@ const MatchController = () => {
             ] as { key: DisplayMode; label: string; color: string }[]).map(btn => (
               <ControlBtn key={btn.key} label={btn.label} color={btn.color} onClick={() => sendDisplay(btn.key)} active={activeDisplay === btn.key} />
             ))}
+          </div>
+          {/* Boundary Alert Manual Buttons */}
+          <div className="flex gap-3 justify-center mt-3 pt-3 border-t border-border">
+            <button
+              onClick={() => sendBoundaryAlert('fours')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm text-white transition-all active:scale-95 hover:brightness-110"
+              style={{ background: 'linear-gradient(135deg, #1a237e, #1565c0)', border: '2px solid #f5c842', boxShadow: '0 0 12px rgba(33,150,243,0.4)' }}
+            >
+              <span style={{ background: '#42a5f5', borderRadius: '50%', width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13 }}>4</span>
+              Total 4 Show
+            </button>
+            <button
+              onClick={() => sendBoundaryAlert('sixes')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm text-white transition-all active:scale-95 hover:brightness-110"
+              style={{ background: 'linear-gradient(135deg, #880e4f, #c2185b)', border: '2px solid #f5c842', boxShadow: '0 0 12px rgba(233,30,99,0.4)' }}
+            >
+              <span style={{ background: '#f06292', borderRadius: '50%', width: 22, height: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13 }}>6</span>
+              Total 6 Show
+            </button>
           </div>
         </Section>
 
