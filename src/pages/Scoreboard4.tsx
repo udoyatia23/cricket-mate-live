@@ -11,6 +11,7 @@ import { getMatch } from '@/lib/store';
 import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
+import VSBannerDisplay, { vsThemeGreen } from '@/components/VSBannerDisplay';
 
 // ErrorBoundary
 class Scoreboard4ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -474,39 +475,21 @@ const Scoreboard4Inner = () => {
   };
 
   // ===========================
-  // VS BANNER
+  // VS BANNER (professional tournament banner with toss result)
   // ===========================
-  const VSBanner = () => {
-    const GREEN_DARK = '#0d3b0d';
-    const GREEN_MID = '#155215';
-    const GOLD = '#fdd835';
-    return (
-      <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
-        <div className="relative flex items-stretch" style={{ height: '80px', background: `linear-gradient(180deg, ${GREEN_MID} 0%, ${GREEN_DARK} 100%)` }}>
-          {/* Team 1 */}
-          <div className={`flex items-center gap-3 flex-1 px-6 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}
-            style={{ background: `linear-gradient(135deg, ${t1Color}cc, ${t1Color}44)` }}>
-            <TeamBadge team={match.team1} size={48} />
-            <span className="font-display font-black text-white text-xl md:text-2xl uppercase tracking-wider">{match.team1.name}</span>
-          </div>
-          {/* VS center */}
-          <div className="flex flex-col items-center justify-center px-6 flex-shrink-0"
-            style={{ background: `linear-gradient(180deg, #1a1a0a, #0d0d05)` }}>
-            <span className="font-display font-black uppercase tracking-widest" style={{ fontSize: '24px', color: GOLD }}>VS</span>
-            <span className="font-display text-white/50 text-[10px] uppercase tracking-widest mt-0.5">{matchTitle}</span>
-          </div>
-          {/* Team 2 */}
-          <div className={`flex items-center gap-3 flex-1 justify-end px-6 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}
-            style={{ background: `linear-gradient(225deg, ${t2Color}cc, ${t2Color}44)` }}>
-            <span className="font-display font-black text-white text-xl md:text-2xl uppercase tracking-wider">{match.team2.name}</span>
-            <TeamBadge team={match.team2} size={48} />
-          </div>
-        </div>
-        <div style={{ height: '2px', background: `linear-gradient(90deg, ${GREEN_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
-      </div>
-    );
-  };
+  const VSBanner = () => (
+    <VSBannerDisplay
+      team1={{ name: match.team1.name, color: t1Color, logo: match.team1.logo }}
+      team2={{ name: match.team2.name, color: t2Color, logo: match.team2.logo }}
+      tournamentName={s?.tournamentName}
+      matchType={s?.matchType || match.matchType}
+      matchNo={s?.matchNo || match.matchNo}
+      tossWonBy={s?.tossWonBy ?? match.tossWonBy ?? 0}
+      optedTo={s?.optedTo || match.optedTo || 'bat'}
+      animIn={vsAnimIn}
+      theme={vsThemeGreen}
+    />
+  );
 
   // ===========================
   // SUMMARY & INFO MODES
