@@ -10,6 +10,7 @@ import { getMatch } from '@/lib/store';
 import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
+import VSBannerDisplay, { vsPurple } from '@/components/VSBannerDisplay';
 
 // ErrorBoundary
 class Scoreboard3ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -375,33 +376,17 @@ const Scoreboard3Inner = () => {
 
   // ===== VS BANNER =====
   const VSBanner = () => (
-    <div className={`relative w-full overflow-hidden transition-all duration-700 ${vsAnimIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-      <div className="relative flex items-stretch" style={{ height: '80px', background: 'linear-gradient(180deg, #1a1a2e 0%, #111122 100%)' }}>
-        {/* Team 1 */}
-        <div className={`flex items-center relative overflow-hidden flex-1 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}>
-          <div className="h-full flex items-center justify-center px-3 flex-shrink-0" style={{ background: `linear-gradient(135deg, ${t1Color}dd, ${t1Color}88)`, minWidth: '80px' }}>
-            <TeamLogo team={match.team1} size={48} />
-          </div>
-          <span className="font-display text-xl md:text-2xl font-black text-white uppercase tracking-[0.1em] pl-4">{match.team1.name}</span>
-        </div>
-        {/* Center VS */}
-        <div className={`relative flex-shrink-0 flex items-center justify-center z-20 w-[160px] md:w-[200px] transition-all duration-700 delay-400 ${vsAnimIn ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}>
-          <div className="px-5 py-2.5 rounded-lg text-center" style={{ background: 'linear-gradient(135deg, #6a1b9a, #ab47bc)', boxShadow: '0 0 20px rgba(171,71,188,0.4)' }}>
-            <div className="font-display text-[9px] text-amber-300 font-bold tracking-[0.2em] uppercase">{match.matchType || 'MATCH'} #{match.matchNo || 1}</div>
-            <div className="font-display text-white text-lg font-black tracking-wider">VS</div>
-            <div className="font-display text-[8px] text-white/50 tracking-widest">{match.overs} OVERS</div>
-          </div>
-        </div>
-        {/* Team 2 */}
-        <div className={`flex items-center justify-end relative overflow-hidden flex-1 transition-all duration-700 delay-200 ${vsAnimIn ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}>
-          <span className="font-display text-xl md:text-2xl font-black text-white uppercase tracking-[0.1em] pr-4">{match.team2.name}</span>
-          <div className="h-full flex items-center justify-center px-3 flex-shrink-0" style={{ background: `linear-gradient(135deg, ${t2Color}88, ${t2Color}dd)`, minWidth: '80px' }}>
-            <TeamLogo team={match.team2} size={48} />
-          </div>
-        </div>
-      </div>
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, transparent, #6a1b9a, #e040fb, #6a1b9a, transparent)' }} />
-    </div>
+    <VSBannerDisplay
+      team1={{ name: s ? s.t1.name : match.team1.name, color: s?.t1.color || match.team1.color || '#6a1b9a', logo: match.team1.logo }}
+      team2={{ name: s ? s.t2.name : match.team2.name, color: s?.t2.color || match.team2.color || '#1a237e', logo: match.team2.logo }}
+      tournamentName={s?.tournamentName}
+      matchType={s?.matchType || match.matchType}
+      matchNo={s?.matchNo || match.matchNo}
+      tossWonBy={s?.tossWonBy ?? match.tossWonBy ?? 0}
+      optedTo={s?.optedTo || match.optedTo || 'bat'}
+      animIn={vsAnimIn}
+      theme={vsPurple}
+    />
   );
 
   // ===== TARGET BANNER =====
