@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trophy, LogIn, UserPlus } from 'lucide-react';
+import { Trophy, LogIn, UserPlus, MessageCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,6 +14,7 @@ const Auth = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -23,20 +24,55 @@ const Auth = () => {
       return;
     }
     setLoading(true);
-    // Retry up to 2 times on timeout
+
     for (let attempt = 0; attempt < 3; attempt++) {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (!error) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        const msg = error?.message || '';
+        if (msg.includes('timeout') || msg.includes('504') || msg.includes('timed out')) {
+          if (attempt < 2) continue;
+        }
         setLoading(false);
-        navigate('/dashboard');
+        toast({
+          title: 'Login Failed',
+          description: msg.includes('timeout') || msg.includes('504') ? 'Server is waking up, please try again in a few seconds.' : msg,
+          variant: 'destructive'
+        });
         return;
       }
-      const msg = error?.message || JSON.stringify(error) || 'Unknown error';
-      if (msg.includes('timeout') || msg.includes('504') || msg.includes('timed out')) {
-        if (attempt < 2) continue; // retry
+
+      // Check access permission
+      const session = data.session;
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-ops/check-access`,
+          { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+        );
+        const result = await res.json();
+
+        if (result.role === 'admin') {
+          // Admin should use /admin panel
+          await supabase.auth.signOut();
+          setLoading(false);
+          toast({ title: 'Use Admin Panel', description: 'Please log in at /admin', variant: 'destructive' });
+          return;
+        }
+
+        if (!result.allowed) {
+          await supabase.auth.signOut();
+          setLoading(false);
+          const msg = result.reason === 'expired'
+            ? 'Your subscription has expired. Please contact the admin to renew.'
+            : 'Your account is pending approval. Please contact the admin.';
+          toast({ title: 'Access Denied', description: msg, variant: 'destructive' });
+          return;
+        }
+      } catch {
+        // If check fails, allow login (don't block on edge function error)
       }
+
       setLoading(false);
-      toast({ title: 'Login Failed', description: msg.includes('timeout') || msg.includes('504') ? 'Server is waking up, please try again in a few seconds.' : msg, variant: 'destructive' });
+      navigate('/dashboard');
       return;
     }
     setLoading(false);
@@ -52,6 +88,7 @@ const Auth = () => {
       return;
     }
     setLoading(true);
+
     for (let attempt = 0; attempt < 3; attempt++) {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -63,16 +100,19 @@ const Auth = () => {
       });
       if (!error) {
         setLoading(false);
-        toast({ title: 'Account Created!', description: 'Please check your email to verify your account before logging in.' });
-        setIsLogin(true);
+        setShowSuccessPopup(true);
         return;
       }
-      const msg = error?.message || JSON.stringify(error) || 'Unknown error';
+      const msg = error?.message || '';
       if (msg.includes('timeout') || msg.includes('504') || msg.includes('timed out')) {
         if (attempt < 2) continue;
       }
       setLoading(false);
-      toast({ title: 'Signup Failed', description: msg.includes('timeout') || msg.includes('504') ? 'Server is waking up, please try again in a few seconds.' : msg, variant: 'destructive' });
+      toast({
+        title: 'Signup Failed',
+        description: msg.includes('timeout') || msg.includes('504') ? 'Server is waking up, please try again in a few seconds.' : msg,
+        variant: 'destructive'
+      });
       return;
     }
     setLoading(false);
@@ -98,38 +138,18 @@ const Auth = () => {
             <>
               <div>
                 <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="mt-1 bg-secondary border-border"
-                />
+                <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Enter your full name" className="mt-1 bg-secondary border-border" />
               </div>
               <div>
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="Enter your phone number"
-                  className="mt-1 bg-secondary border-border"
-                />
+                <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Enter your phone number" className="mt-1 bg-secondary border-border" />
               </div>
             </>
           )}
 
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="mt-1 bg-secondary border-border"
-            />
+            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email" className="mt-1 bg-secondary border-border" />
           </div>
 
           <div>
@@ -145,11 +165,7 @@ const Auth = () => {
             />
           </div>
 
-          <Button
-            className="w-full"
-            onClick={isLogin ? handleLogin : handleSignup}
-            disabled={loading}
-          >
+          <Button className="w-full" onClick={isLogin ? handleLogin : handleSignup} disabled={loading}>
             {loading ? 'Please wait...' : isLogin ? (
               <><LogIn className="mr-2 h-4 w-4" /> Sign In</>
             ) : (
@@ -158,15 +174,46 @@ const Auth = () => {
           </Button>
 
           <div className="text-center">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:underline"
-            >
+            <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-primary hover:underline">
               {isLogin ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
+          <div className="bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center space-y-5 shadow-2xl">
+            <div className="flex justify-center">
+              <div className="rounded-full bg-green-500/10 p-4">
+                <CheckCircle className="h-12 w-12 text-green-500" />
+              </div>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-2">অ্যাকাউন্ট তৈরি সফল হয়েছে!</h2>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে। অ্যাপ্লিকেশনটি ব্যবহার করতে চাইলে কর্তৃপক্ষের সাথে যোগাযোগ করুন।
+              </p>
+            </div>
+            <a
+              href="https://wa.me/8801793645711?text=আমি CricScorer ব্যবহার করতে চাই। আমার ইমেল: "
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+            >
+              <MessageCircle className="h-5 w-5" />
+              WhatsApp এ যোগাযোগ করুন
+            </a>
+            <button
+              onClick={() => { setShowSuccessPopup(false); setIsLogin(true); }}
+              className="text-sm text-muted-foreground hover:text-foreground underline"
+            >
+              বন্ধ করুন
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
