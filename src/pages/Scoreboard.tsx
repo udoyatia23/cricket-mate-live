@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import ScoreboardTicker from '@/components/ScoreboardTicker';
 import BoundaryAlert from '@/components/BoundaryAlert';
+import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -746,6 +747,11 @@ const ScoreboardInner = () => {
         {renderContent()}
         {isBottomAligned && <ScoreboardTicker snapshot={snapshot} match={match} variant="dark" />}
         {isBottomAligned && <BoundaryAlert snapshot={snapshot} variant="dark" barHeight={62} />}
+        {/* Full-width broadcast overlay banner for FOUR / SIX / WICKET */}
+        <BroadcastOverlayBanner
+          overlay={display.overlay}
+          onHide={() => setDisplay(prev => ({ ...prev, overlay: 'none' }))}
+        />
       </div>
     </div>
   );

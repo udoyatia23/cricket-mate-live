@@ -254,6 +254,7 @@ const MatchController = () => {
     if (overlay && id) {
       setDisplayState(id, { overlay });
       if (overlay !== 'none') {
+        // 6s: banner shows for 5s + 1s buffer for exit animation
         setTimeout(() => {
           const clearSnap = { ...createSnapshot(deep), overlay: 'none' as const };
           broadcastPayload({ snapshot: clearSnap });
@@ -262,7 +263,7 @@ const MatchController = () => {
             { onConflict: 'match_id' }
           ).then(() => {});
           setDisplayState(id, { overlay: 'none' });
-        }, 3000);
+        }, 6000);
       }
     }
   }, [broadcastPayload, id, createSnapshot, debouncedMatchSave]);
@@ -308,6 +309,7 @@ const MatchController = () => {
       });
     }
     if (overlay !== 'none') {
+      // 6s: banner shows for 5s + 1s buffer for exit animation
       setTimeout(() => {
         broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
         setDisplayState(id, { overlay: 'none' });
@@ -319,7 +321,7 @@ const MatchController = () => {
             { onConflict: 'match_id' }
           ).then(() => {});
         }
-      }, 3000);
+      }, 6000);
     }
   };
 
