@@ -44,9 +44,10 @@ const MatchController = () => {
   const [newBatsmanName, setNewBatsmanName] = useState('');
   const [needsBowlerAfterWicket, setNeedsBowlerAfterWicket] = useState(false);
   const scoringLock = useRef(false);
-  // Boundary tracking for auto-popup (triggers on every new 4 or 6)
+  // Boundary tracking for auto-popup (triggers every 3 overs if boundary was hit)
   const lastFoursCount = useRef(-1);
   const lastSixesCount = useRef(-1);
+  const lastMilestoneOver = useRef(-1); // last 3-over milestone that triggered alert
 
   useEffect(() => {
     if (id) {
@@ -202,19 +203,31 @@ const MatchController = () => {
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
 
-    // Check for new boundary hit (trigger alert on every new 4 or 6)
+    // Boundary alert: triggers once per 3-over block if a boundary was hit in that block
     const { fours, sixes } = countBoundaries(deep);
     let boundaryAlert: 'fours' | 'sixes' | undefined;
+
     // Initialize refs on first save (don't trigger alert on load)
     if (lastFoursCount.current === -1) lastFoursCount.current = fours;
     if (lastSixesCount.current === -1) lastSixesCount.current = sixes;
-    
-    if (fours > lastFoursCount.current) {
-      boundaryAlert = 'fours';
+
+    const inn = deep.innings[deep.currentInningsIndex];
+    if (inn) {
+      const bpo = deep.ballsPerOver || 6;
+      const completedOvers = Math.floor(inn.balls / bpo);
+      // Which 3-over block are we in? (0=overs 1-3, 1=overs 4-6, etc.)
+      const currentBlock = Math.floor(completedOvers / 3);
+
+      const foursIncreased = fours > lastFoursCount.current;
+      const sixesIncreased = sixes > lastSixesCount.current;
+
+      // Trigger if: boundary just hit AND this block hasn't shown an alert yet AND block > 0
+      if ((foursIncreased || sixesIncreased) && currentBlock > lastMilestoneOver.current && currentBlock > 0) {
+        boundaryAlert = sixesIncreased ? 'sixes' : 'fours';
+        lastMilestoneOver.current = currentBlock;
+      }
     }
-    if (sixes > lastSixesCount.current) {
-      boundaryAlert = 'sixes'; // sixes take priority
-    }
+
     lastFoursCount.current = fours;
     lastSixesCount.current = sixes;
 
