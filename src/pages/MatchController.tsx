@@ -267,12 +267,21 @@ const MatchController = () => {
   }, []);
 
   // Cleanup debounce timer and save any pending data on unmount
+  // Also flush immediately if match is finished so status is never lost on navigation
+  const matchRef = useRef<Match | null>(null);
+  useEffect(() => { matchRef.current = match; }, [match]);
+
   useEffect(() => {
     return () => {
       if (matchSaveTimer.current) {
         clearTimeout(matchSaveTimer.current);
         const toSave = latestMatchForSave.current;
         if (toSave) updateMatch(toSave).catch(console.error);
+      }
+      // Safety net: if match is finished and no pending save, force-save current state
+      const current = matchRef.current;
+      if (current && current.status === 'finished' && !latestMatchForSave.current) {
+        updateMatch(current).catch(console.error);
       }
     };
   }, []);
@@ -315,7 +324,18 @@ const MatchController = () => {
     }
 
     // 3. DEBOUNCED: Heavy matches table update (every 3s max)
-    debouncedMatchSave(deep);
+    // EXCEPTION: If match is finished, save IMMEDIATELY so status persists when user navigates away
+    if (deep.status === 'finished') {
+      // Cancel any pending debounced save and save right now
+      if (matchSaveTimer.current) {
+        clearTimeout(matchSaveTimer.current);
+        matchSaveTimer.current = null;
+      }
+      latestMatchForSave.current = null;
+      updateMatch(deep).catch(e => console.error('matches finished save failed:', e));
+    } else {
+      debouncedMatchSave(deep);
+    }
 
     if (overlay && id) {
       setDisplayState(id, { overlay });
