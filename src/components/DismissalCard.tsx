@@ -25,29 +25,38 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
   const [visible, setVisible] = useState(false);
   const [animOut, setAnimOut] = useState(false);
   const [dismissalData, setDismissalData] = useState<ScoreboardSnapshot['dismissal'] | null>(null);
+
+  // Track last triggered dismissal timestamp to avoid re-triggering on subsequent balls
   const lastDismissalTs = useRef<number>(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const outTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!snapshot?.ts) return;
-    const ts = snapshot.ts;
+    const ts = snapshot?.ts;
+    const dismissal = snapshot?.dismissal;
 
-    // Only trigger when this is a NEW ts that also carries a dismissal
-    if (!snapshot.dismissal) return;
+    // Must have a timestamp and a dismissal payload
+    if (!ts || !dismissal) return;
+
+    // Only trigger if this is a NEW dismissal event (strictly greater ts)
     if (ts <= lastDismissalTs.current) return;
 
-    // Record the ts of this dismissal so subsequent snapshots (next balls)
-    // with the same or newer ts but no new dismissal don't re-trigger
+    // Lock this dismissal timestamp so no subsequent ball (same or later ts without a new dismissal)
+    // can re-trigger the card
     lastDismissalTs.current = ts;
 
-    // Cancel any running timers
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    if (outTimer.current) clearTimeout(outTimer.current);
+    // Cancel any currently running timers before starting fresh
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    if (outTimer.current) {
+      clearTimeout(outTimer.current);
+      outTimer.current = null;
+    }
 
-    // Capture the dismissal data at this moment
-    const captured = snapshot.dismissal;
-    setDismissalData(captured);
+    // Capture dismissal data at this exact moment
+    setDismissalData({ ...dismissal });
     setAnimOut(false);
     setVisible(true);
 
@@ -56,17 +65,18 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
       setAnimOut(true);
     }, 4300);
 
-    // After 5.2s hide completely
+    // After 5.2s hide completely and clear data
     hideTimer.current = setTimeout(() => {
       setVisible(false);
       setDismissalData(null);
     }, 5200);
 
+    // Cleanup: cancel timers if component unmounts mid-animation
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       if (outTimer.current) clearTimeout(outTimer.current);
     };
-    // Only depend on ts — avoids re-triggering on object reference changes
+    // Only react to ts changes — prevents re-triggering when other snapshot fields update
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot?.ts]);
 
@@ -106,6 +116,10 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
           0%   { background-position: -200% center; }
           100% { background-position: 200% center; }
         }
+        @keyframes dismissalProgress {
+          from { transform: scaleX(1); }
+          to   { transform: scaleX(0); }
+        }
       `}</style>
 
       {/* Card wrapper */}
@@ -138,7 +152,7 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
             <div className="flex items-baseline justify-between gap-2 mb-[6px]">
               {/* Name */}
               <div className="flex items-baseline gap-1.5 min-w-0">
-                {/* WICKET badge */}
+                {/* OUT badge */}
                 <span
                   className="flex-shrink-0 text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded-[2px] uppercase"
                   style={{
@@ -223,7 +237,10 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
                 >
                   <span
                     className="font-display font-black tabular-nums"
-                    style={{ fontSize: 'clamp(0.9rem, 3vw, 1.25rem)', color: stat.label === '4s' ? '#4fc3f7' : stat.label === '6s' ? '#f5c842' : '#a5d6a7' }}
+                    style={{
+                      fontSize: 'clamp(0.9rem, 3vw, 1.25rem)',
+                      color: stat.label === '4s' ? '#4fc3f7' : stat.label === '6s' ? '#f5c842' : '#a5d6a7',
+                    }}
                   >
                     {stat.value}
                   </span>
@@ -242,7 +259,7 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
           style={{ background: 'linear-gradient(90deg, #c17a1a, #f5c842, #fff7c0, #f5c842, #c17a1a)' }}
         />
 
-        {/* Auto-hide progress bar */}
+        {/* Auto-hide progress bar — animates from full width to zero over 5 seconds */}
         <div
           className="h-[2px] w-full"
           style={{
@@ -251,12 +268,6 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
             animation: 'dismissalProgress 5s linear forwards',
           }}
         />
-        <style>{`
-          @keyframes dismissalProgress {
-            from { transform: scaleX(1); }
-            to   { transform: scaleX(0); }
-          }
-        `}</style>
       </div>
     </div>
   );
