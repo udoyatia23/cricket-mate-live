@@ -14,6 +14,7 @@ export interface DisplayState {
   customText?: string;
   momPlayer?: string;
   timestamp: number;
+  drsTimerStart?: number; // epoch ms when DRS timer was started
 }
 
 const DEFAULT_STATE: DisplayState = { mode: 'default', overlay: 'none', timestamp: 0 };
