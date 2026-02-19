@@ -6,6 +6,7 @@ import MatchSummaryCard from '@/components/MatchSummaryCard';
 import UpcomingMatchDisplay from '@/components/UpcomingMatchDisplay';
 import DrsTimer from '@/components/DrsTimer';
 import DismissalCard from '@/components/DismissalCard';
+import TourStatsDisplay from '@/components/TourStatsDisplay';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -736,6 +737,7 @@ const ScoreboardInner = () => {
   const isBottomAligned = display.mode === 'default' || display.mode === 'score';
 
   const renderContent = () => {
+    const tourId = snapshot?.tournamentId || match?.tournamentId;
     switch (display.mode) {
       case 'vs': return <VSBanner />;
       case 'target': return <TargetBanner />;
@@ -746,6 +748,18 @@ const ScoreboardInner = () => {
       case 'fow': return <FallOfWickets />;
       case 'summary': return <MatchSummary />;
       case 'upcoming': return <UpcomingMatchDisplay snapshot={snapshot} variant="dark" />;
+      case 'tour_points' as any:
+        return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_points" variant="forest" /> : null;
+      case 'tour_points_tied' as any:
+        return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_points_tied" variant="forest" /> : null;
+      case 'tour_batters' as any:
+        return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_batters" variant="forest" /> : null;
+      case 'tour_bowlers' as any:
+        return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_bowlers" variant="forest" /> : null;
+      case 'tour_boundaries' as any:
+        return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_boundaries" variant="forest" /> : null;
+      case 'tour_series' as any:
+        return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_series" variant="forest" /> : null;
       case 'score': case 'default': default: return <DefaultScoreBar />;
     }
   };
