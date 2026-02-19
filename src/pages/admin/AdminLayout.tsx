@@ -2,8 +2,9 @@ import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  LayoutDashboard, Users, Settings, LogOut, Shield, Menu, X
+  LayoutDashboard, Users, Settings, LogOut, Menu, X
 } from 'lucide-react';
+import logoImg from '@/assets/cricstreampro.png';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -33,9 +34,9 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
       )}>
         {/* Logo */}
         <div className="flex items-center gap-2 p-6 border-b border-border">
-          <Shield className="h-7 w-7 text-primary" />
+          <img src={logoImg} alt="CricStream Pro" className="h-10 object-contain" />
           <div>
-            <p className="font-bold text-base leading-none">CricScorer</p>
+            <p className="font-bold text-base leading-none">CricStream Pro</p>
             <p className="text-xs text-muted-foreground">Admin Panel</p>
           </div>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>

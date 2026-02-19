@@ -41,7 +41,7 @@ const AdminDashboard = () => {
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold">Dashboard</h2>
-          <p className="text-muted-foreground text-sm">Overview of CricScorer users</p>
+          <p className="text-muted-foreground text-sm">Overview of CricStream Pro users</p>
         </div>
 
         {loading ? (

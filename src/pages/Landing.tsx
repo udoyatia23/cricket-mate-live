@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import heroImage from '@/assets/hero-cricket.jpg';
+import heroBg from '@/assets/hero-bg.png';
+import logoImg from '@/assets/cricstreampro.png';
 import {
   Trophy, Zap, Users, BarChart3, Star, Check, MessageCircle,
   Monitor, Tv2, Radio, Video
@@ -152,8 +153,7 @@ const Landing = () => {
       <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <Link to="/" className="flex items-center gap-2">
-            <Trophy className="h-6 w-6 text-primary" />
-            <span className="font-display text-xl font-bold tracking-wide">CricScorer</span>
+            <img src={logoImg} alt="CricStream Pro" className="h-10 object-contain" />
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/auth">
@@ -169,7 +169,7 @@ const Landing = () => {
       {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroImage} alt="Cricket Stadium" className="w-full h-full object-cover" />
+          <img src={heroBg} alt="Cricket Stadium" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/80 to-background" />
         </div>
         <div className="relative z-10 container mx-auto px-4 text-center">
@@ -177,9 +177,9 @@ const Landing = () => {
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-primary text-sm font-medium font-display tracking-wide">বাংলাদেশের #১ ক্রিকেট স্কোরিং প্ল্যাটফর্ম</span>
           </div>
-          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6">
-            <span className="text-gradient">CricScorer</span>
-          </h1>
+          <div className="flex justify-center mb-6">
+            <img src={logoImg} alt="CricStream Pro" className="h-32 md:h-44 object-contain drop-shadow-2xl" />
+          </div>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
             প্রফেশনাল ক্রিকেট স্কোরিং এখন সহজ। টুর্নামেন্ট তৈরি করুন, ম্যাচ পরিচালনা করুন এবং লাইভ স্কোরবোর্ড শেয়ার করুন — সব ব্রাউজার থেকে।
           </p>
@@ -230,7 +230,7 @@ const Landing = () => {
           <div className="text-center mb-12">
             <span className="text-primary text-sm font-display font-semibold tracking-widest uppercase">সরাসরি সংযোগ</span>
             <h2 className="font-display text-3xl md:text-4xl font-bold mt-2 mb-3">Compatible With</h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">আপনার পছন্দের যেকোনো লাইভ স্ট্রিমিং সফটওয়্যারের সাথে CricScorer সরাসরি কাজ করে</p>
+            <p className="text-muted-foreground max-w-lg mx-auto">আপনার পছন্দের যেকোনো লাইভ স্ট্রিমিং সফটওয়্যারের সাথে CricStream Pro সরাসরি কাজ করে</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
             {softwareList.map((sw) => (
@@ -381,7 +381,7 @@ const Landing = () => {
             <Trophy className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">এখনই শুরু করুন</h2>
             <p className="text-muted-foreground max-w-lg mx-auto mb-8">
-              আপনার পরবর্তী টুর্নামেন্টকে প্রফেশনাল করে তুলুন। CricScorer দিয়ে লাইভ স্কোরিং শুরু করুন আজই।
+              আপনার পরবর্তী টুর্নামেন্টকে প্রফেশনাল করে তুলুন। CricStream Pro দিয়ে লাইভ স্কোরিং শুরু করুন আজই।
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/auth">
@@ -408,11 +408,10 @@ const Landing = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-primary" />
-              <span className="font-display text-lg font-bold">CricScorer</span>
+              <img src={logoImg} alt="CricStream Pro" className="h-10 object-contain" />
             </div>
             <p className="text-muted-foreground text-sm text-center">
-              © ২০২৬ CricScorer। ক্রিকেট প্রেমীদের জন্য তৈরি 🏏
+              © ২০২৬ CricStream Pro। ক্রিকেট প্রেমীদের জন্য তৈরি 🏏
             </p>
             <a
               href="https://wa.me/8801793645711"

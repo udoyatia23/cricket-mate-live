@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
+import logoImg from '@/assets/cricstreampro.png';
 import { useToast } from '@/hooks/use-toast';
 
 const AdminLogin = () => {
@@ -50,11 +51,11 @@ const AdminLogin = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="h-10 w-10 text-primary" />
+          <div className="flex items-center justify-center mb-3">
+            <img src={logoImg} alt="CricStream Pro" className="h-20 object-contain" />
           </div>
           <h1 className="font-display text-3xl font-bold tracking-wide">Admin Panel</h1>
-          <p className="text-muted-foreground mt-1">CricScorer Administration</p>
+          <p className="text-muted-foreground mt-1">CricStream Pro Administration</p>
         </div>
 
         <div className="gradient-card rounded-xl border border-border p-6 shadow-card space-y-5">
