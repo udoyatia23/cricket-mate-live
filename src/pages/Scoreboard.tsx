@@ -11,6 +11,7 @@ import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import VSBannerDisplay, { vsThemeDark } from '@/components/VSBannerDisplay';
+import { BallDot, EmptyBallDot } from '@/components/BallDot';
 
 // ====== ErrorBoundary to prevent blank screen in OBS/PRISM ======
 class ScoreboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -362,26 +363,11 @@ const ScoreboardInner = () => {
     </div>
   );
 
-  // Over ball circle (ICC style)
-  const BallCircle = ({ event }: { event: typeof currentOverBalls[0] }) => {
-    let bg = 'transparent'; let border = 'rgba(255,255,255,0.5)'; let text = String(event.runs); let tc = '#fff';
-    if (event.isWicket) { bg = '#e91e63'; border = '#e91e63'; text = 'W'; }
-    else if (event.runs === 6) { bg = '#4caf50'; border = '#4caf50'; }
-    else if (event.runs === 4) { bg = '#00bcd4'; border = '#00bcd4'; }
-    else if (event.type === 'wide') { border = '#ffc107'; text = 'Wd'; tc = '#ffc107'; }
-    else if (event.type === 'noBall') { border = '#ffc107'; text = 'Nb'; tc = '#ffc107'; }
-    return (
-      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-        style={{ backgroundColor: bg, border: `2px solid ${border}`, color: tc }}>
-        {text}
-      </div>
-    );
-  };
-
-  const EmptyBall = () => (
-    <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] flex-shrink-0"
-      style={{ borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.25)' }}>○</div>
+  // Ball circle components — now use shared BallDot
+  const BallCircle = ({ event }: { event: typeof currentOverBalls[0] }) => (
+    <BallDot event={event} size="md" theme="dark" />
   );
+  const EmptyBall = () => <EmptyBallDot size="md" theme="dark" />;
 
   // ============ MAIN SCORE BAR - ICC EXACT MATCH ============
   const DefaultScoreBar = () => {

@@ -10,6 +10,7 @@ import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import { getMatch, updateMatch, getTournament, getMatchesForTournament } from '@/lib/store';
 import { setDisplayState, DisplayMode, AnimationOverlay } from '@/lib/displaySync';
 import { supabase } from '@/integrations/supabase/client';
+import { BallDot, EmptyBallDot } from '@/components/BallDot';
 
 const MatchController = () => {
   const { id } = useParams<{ id: string }>();
@@ -886,12 +887,10 @@ const MatchController = () => {
                   </div>
                   <div className="flex gap-1 mt-1">
                     {currentOverBalls.map((e, i) => (
-                      <span key={i} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${e.isWicket ? 'bg-red-600 border-red-400 text-white' : e.type === 'wide' || e.type === 'noBall' ? 'bg-yellow-600 border-yellow-400 text-white' : e.runs === 4 ? 'bg-blue-500 border-blue-300 text-white' : e.runs === 6 ? 'bg-green-500 border-green-300 text-white' : 'bg-white/50 border-white text-black'}`}>
-                        {e.isWicket ? 'W' : e.type === 'wide' ? 'Wd' : e.type === 'noBall' ? 'Nb' : e.runs}
-                      </span>
+                      <BallDot key={i} event={e} size="sm" theme="dark" />
                     ))}
                     {Array.from({ length: Math.max(0, match.ballsPerOver - currentOverBalls.length) }).map((_, i) => (
-                      <span key={`e-${i}`} className="w-6 h-6 rounded-full border border-white/70 flex items-center justify-center bg-white/30" />
+                      <EmptyBallDot key={`e-${i}`} size="sm" theme="dark" />
                     ))}
                   </div>
                 </>

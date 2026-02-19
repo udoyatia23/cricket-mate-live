@@ -11,6 +11,7 @@ import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import VSBannerDisplay, { vsPurple } from '@/components/VSBannerDisplay';
+import { BallDot, EmptyBallDot } from '@/components/BallDot';
 
 // ErrorBoundary
 class Scoreboard3ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -249,26 +250,11 @@ const Scoreboard3Inner = () => {
     </div>
   );
 
-  // === BALL CIRCLE ===
-  const BallCircle = ({ event }: { event: BallEvent }) => {
-    let bg = 'rgba(255,255,255,0.08)'; let border = 'rgba(255,255,255,0.25)'; let text = String(event.runs); let tc = '#fff';
-    if (event.isWicket) { bg = '#e91e63'; border = '#e91e63'; text = 'W'; }
-    else if (event.runs === 6) { bg = '#4caf50'; border = '#4caf50'; }
-    else if (event.runs === 4) { bg = '#2196f3'; border = '#2196f3'; }
-    else if (event.type === 'wide') { border = '#ffc107'; text = 'Wd'; tc = '#ffc107'; bg = 'rgba(255,193,7,0.1)'; }
-    else if (event.type === 'noBall') { border = '#ffc107'; text = 'Nb'; tc = '#ffc107'; bg = 'rgba(255,193,7,0.1)'; }
-    return (
-      <div className="w-[22px] h-[22px] md:w-[26px] md:h-[26px] rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-black flex-shrink-0 transition-all"
-        style={{ backgroundColor: bg, border: `2px solid ${border}`, color: tc }}>
-        {text}
-      </div>
-    );
-  };
-
-  const EmptyBall = () => (
-    <div className="w-[22px] h-[22px] md:w-[26px] md:h-[26px] rounded-full border-2 flex items-center justify-center text-[9px] flex-shrink-0"
-      style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.15)' }}>○</div>
+  // === BALL CIRCLE — shared BallDot component ===
+  const BallCircle = ({ event }: { event: BallEvent }) => (
+    <BallDot event={event} size="md" theme="dark" />
   );
+  const EmptyBall = () => <EmptyBallDot size="md" theme="dark" />;
 
   // ===== IPL-STYLE PREMIUM SCORE BAR =====
   const DefaultScoreBar = () => {

@@ -11,6 +11,7 @@ import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import VSBannerDisplay, { vsThemeWhite } from '@/components/VSBannerDisplay';
+import { BallDot, EmptyBallDot } from '@/components/BallDot';
 
 // ErrorBoundary
 class Scoreboard2ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -246,26 +247,11 @@ const Scoreboard2Inner = () => {
     </div>
   );
 
-  // === BALL CIRCLE ===
-  const BallCircle = ({ event }: { event: BallEvent }) => {
-    let bg = 'transparent'; let border = 'rgba(100,100,120,0.5)'; let text = String(event.runs); let tc = '#333';
-    if (event.isWicket) { bg = '#e91e63'; border = '#e91e63'; text = 'W'; tc = '#fff'; }
-    else if (event.runs === 6) { bg = '#4caf50'; border = '#4caf50'; tc = '#fff'; }
-    else if (event.runs === 4) { bg = '#2196f3'; border = '#2196f3'; tc = '#fff'; }
-    else if (event.type === 'wide') { border = '#ff9800'; text = 'Wd'; tc = '#ff9800'; }
-    else if (event.type === 'noBall') { border = '#ff9800'; text = 'Nb'; tc = '#ff9800'; }
-    return (
-      <div className="w-[22px] h-[22px] md:w-6 md:h-6 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold flex-shrink-0"
-        style={{ backgroundColor: bg, border: `2px solid ${border}`, color: tc }}>
-        {text}
-      </div>
-    );
-  };
-
-  const EmptyBall = () => (
-    <div className="w-[22px] h-[22px] md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center text-[9px] flex-shrink-0"
-      style={{ borderColor: 'rgba(100,100,120,0.3)', color: 'rgba(100,100,120,0.3)' }}>○</div>
+  // === BALL CIRCLE — shared BallDot component ===
+  const BallCircle = ({ event }: { event: BallEvent }) => (
+    <BallDot event={event} size="md" theme="light" />
   );
+  const EmptyBall = () => <EmptyBallDot size="md" theme="light" />;
 
   // ===== MAIN SCORE BAR - ICC CLEAN STYLE (Reference Image) =====
   const DefaultScoreBar = () => {
