@@ -4,6 +4,7 @@ import BoundaryAlert from '@/components/BoundaryAlert';
 import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
 import MatchSummaryCard from '@/components/MatchSummaryCard';
 import UpcomingMatchDisplay from '@/components/UpcomingMatchDisplay';
+import DrsTimer from '@/components/DrsTimer';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -759,6 +760,8 @@ const ScoreboardInner = () => {
           overlay={display.overlay}
           onHide={() => setDisplay(prev => ({ ...prev, overlay: 'none' }))}
         />
+        {/* DRS Timer — bottom-right overlay, counts 14→0 then auto-hides */}
+        <DrsTimer drsTimerStart={display.drsTimerStart} />
       </div>
     </div>
   );

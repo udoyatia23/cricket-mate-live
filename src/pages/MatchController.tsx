@@ -1239,11 +1239,29 @@ const MatchController = () => {
 
         {/* Decision */}
         <Section>
-          <div className="flex items-center gap-3 justify-center">
+          <div className="flex items-center gap-3 justify-center flex-wrap">
             <span className="font-display text-lg font-bold text-red-400">Decision :</span>
             <ControlBtn label="PENDING" color="bg-gray-700 text-white" onClick={() => sendOverlayStandalone('none')} />
             <ControlBtn label="OUT" color="bg-red-600 text-white" onClick={() => sendOverlayStandalone('out')} />
             <ControlBtn label="NOT OUT" color="bg-green-600 text-white" onClick={() => sendOverlayStandalone('not_out')} />
+            <button
+              onClick={() => {
+                if (!id) return;
+                const now = Date.now();
+                setDisplayState(id, { drsTimerStart: now, timestamp: now });
+                broadcastPayload({ display_state: { drsTimerStart: now, timestamp: now } });
+              }}
+              className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, #1a237e, #3949ab)',
+                border: '2px solid #7c4dff',
+                color: '#fff',
+                boxShadow: '0 0 16px rgba(124,77,255,0.5)',
+                letterSpacing: '0.12em',
+              }}
+            >
+              🎯 DRS TIME
+            </button>
           </div>
         </Section>
 
