@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, Search, CheckCircle, Clock, XCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, Search, CheckCircle, Clock, XCircle, Trash2, ChevronDown, ChevronUp, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 interface UserRecord {
   id: string;
@@ -17,6 +18,9 @@ interface UserRecord {
   subscription_end: string | null;
   notes: string;
   created_at: string;
+  sb2_unlocked: boolean;
+  sb3_unlocked: boolean;
+  sb4_unlocked: boolean;
 }
 
 const statusColor = (s: string) => {
@@ -75,6 +79,9 @@ const AdminUsers = () => {
           status: edit.status ?? user.status,
           subscription_end: edit.subscription_end ?? user.subscription_end,
           notes: edit.notes ?? user.notes,
+          sb2_unlocked: edit.sb2_unlocked ?? user.sb2_unlocked,
+          sb3_unlocked: edit.sb3_unlocked ?? user.sb3_unlocked,
+          sb4_unlocked: edit.sb4_unlocked ?? user.sb4_unlocked,
         }),
       }
     );
@@ -224,6 +231,32 @@ const AdminUsers = () => {
                           value={edit.notes ?? user.notes ?? ''}
                           onChange={e => setEditState(prev => ({ ...prev, [user.id]: { ...prev[user.id], notes: e.target.value } }))}
                         />
+                      </div>
+
+                      {/* Scoreboard Unlock Permissions */}
+                      <div className="border border-border rounded-lg p-3 space-y-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <Unlock className="h-3.5 w-3.5" /> Scoreboard Permissions
+                        </p>
+                        <div className="text-xs text-muted-foreground mb-1">Scoreboard 1 is always available. Unlock extra scoreboards below:</div>
+                        {[2, 3, 4].map(num => {
+                          const key = `sb${num}_unlocked` as 'sb2_unlocked' | 'sb3_unlocked' | 'sb4_unlocked';
+                          const isUnlocked = edit[key] ?? user[key] ?? false;
+                          return (
+                            <div key={num} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {isUnlocked
+                                  ? <Unlock className="h-3.5 w-3.5 text-green-500" />
+                                  : <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                                <span className="text-sm font-medium">Scoreboard {num}</span>
+                              </div>
+                              <Switch
+                                checked={isUnlocked}
+                                onCheckedChange={val => setEditState(prev => ({ ...prev, [user.id]: { ...prev[user.id], [key]: val } }))}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
 
                       <div className="flex items-center gap-2 justify-end">

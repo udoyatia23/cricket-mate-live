@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Undo2, Plus, Trophy, Users, ArrowLeftRight } from 'lucide-react';
+import { ArrowLeft, Undo2, Plus, Trophy, Users, ArrowLeftRight, Lock } from 'lucide-react';
 import { Match, Player, Innings, BallEvent, createPlayer, createInnings, getOversString, getRunRate } from '@/types/cricket';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import { getMatch, updateMatch, getTournament, getMatchesForTournament } from '@/lib/store';
@@ -102,6 +102,28 @@ const MatchController = () => {
   // Boundary count tracking (for manual button display only - no auto-trigger)
   const lastFoursCount = useRef(-1);
   const lastSixesCount = useRef(-1);
+  // Scoreboard permissions
+  const [sbPerms, setSbPerms] = useState({ sb2: false, sb3: false, sb4: false });
+
+  useEffect(() => {
+    const fetchPerms = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-ops/check-access`,
+          { headers: { Authorization: `Bearer ${session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY } }
+        );
+        const data = await res.json();
+        setSbPerms({
+          sb2: data.sb2_unlocked ?? false,
+          sb3: data.sb3_unlocked ?? false,
+          sb4: data.sb4_unlocked ?? false,
+        });
+      } catch { /* ignore */ }
+    };
+    fetchPerms();
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -853,19 +875,29 @@ const MatchController = () => {
           <ArrowLeft className="h-5 w-5 text-white" />
           <span className="font-display text-xl font-bold text-white italic">CricScorer</span>
         </Link>
-        <div className="ml-auto flex items-center gap-4">
+        <div className="ml-auto flex items-center gap-3 flex-wrap justify-end">
           <Link to={`/scoreboard/${match.id}`} target="_blank">
-            <span className="text-white text-sm font-semibold underline">SCOREBOARD LINKS</span>
+            <span className="text-white text-xs font-semibold underline hover:text-cyan-300 transition-colors">SCOREBOARD 1</span>
           </Link>
-          <Link to={`/scoreboard2/${match.id}`} target="_blank">
-            <span className="text-white text-sm font-semibold underline ml-2">SCOREBOARD LINKS 2</span>
-          </Link>
-          <Link to={`/scoreboard3/${match.id}`} target="_blank">
-            <span className="text-white text-sm font-semibold underline ml-2">SCOREBOARD LINKS 3</span>
-          </Link>
-          <Link to={`/scoreboard4/${match.id}`} target="_blank">
-            <span className="text-white text-sm font-semibold underline ml-2">SCOREBOARD LINKS 4</span>
-          </Link>
+          {[
+            { num: 2, key: 'sb2' as const, path: `/scoreboard2/${match.id}` },
+            { num: 3, key: 'sb3' as const, path: `/scoreboard3/${match.id}` },
+            { num: 4, key: 'sb4' as const, path: `/scoreboard4/${match.id}` },
+          ].map(({ num, key, path }) =>
+            sbPerms[key] ? (
+              <Link key={num} to={path} target="_blank">
+                <span className="text-white text-xs font-semibold underline hover:text-cyan-300 transition-colors">SCOREBOARD {num}</span>
+              </Link>
+            ) : (
+              <span
+                key={num}
+                className="flex items-center gap-1 text-xs font-semibold text-white/40 cursor-not-allowed select-none"
+                title={`Scoreboard ${num} is locked. Contact admin to unlock.`}
+              >
+                <Lock className="h-3 w-3" /> SCOREBOARD {num}
+              </span>
+            )
+          )}
         </div>
       </header>
 

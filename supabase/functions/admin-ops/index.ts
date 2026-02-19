@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
   if (action === 'check-access') {
     const { data: access } = await supabaseAdmin
       .from('user_access')
-      .select('status, subscription_end')
+      .select('status, subscription_end, sb2_unlocked, sb3_unlocked, sb4_unlocked')
       .eq('user_id', user.id)
       .single();
 
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       .eq('role', 'admin')
       .single();
 
-    if (adminRole) return new Response(JSON.stringify({ allowed: true, role: 'admin' }), { headers: corsHeaders });
+    if (adminRole) return new Response(JSON.stringify({ allowed: true, role: 'admin', sb2_unlocked: true, sb3_unlocked: true, sb4_unlocked: true }), { headers: corsHeaders });
 
     if (!access || access.status !== 'active') {
       return new Response(JSON.stringify({ allowed: false, reason: 'pending' }), { headers: corsHeaders });
@@ -88,7 +88,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ allowed: true, role: 'user' }), { headers: corsHeaders });
+    return new Response(JSON.stringify({
+      allowed: true,
+      role: 'user',
+      sb2_unlocked: access.sb2_unlocked ?? false,
+      sb3_unlocked: access.sb3_unlocked ?? false,
+      sb4_unlocked: access.sb4_unlocked ?? false,
+    }), { headers: corsHeaders });
   }
 
   // Remaining actions require admin role
@@ -124,6 +130,9 @@ Deno.serve(async (req) => {
           subscription_end: access?.subscription_end ?? null,
           notes: access?.notes ?? '',
           created_at: u.created_at,
+          sb2_unlocked: access?.sb2_unlocked ?? false,
+          sb3_unlocked: access?.sb3_unlocked ?? false,
+          sb4_unlocked: access?.sb4_unlocked ?? false,
         };
       });
 
@@ -132,11 +141,19 @@ Deno.serve(async (req) => {
 
   if (action === 'update-user-access') {
     const body = await req.json();
-    const { user_id, status, subscription_end, notes } = body;
+    const { user_id, status, subscription_end, notes, sb2_unlocked, sb3_unlocked, sb4_unlocked } = body;
     const { error } = await supabaseAdmin
       .from('user_access')
       .upsert(
-        { user_id, status, subscription_end: subscription_end || null, notes: notes || '' },
+        {
+          user_id,
+          status,
+          subscription_end: subscription_end || null,
+          notes: notes || '',
+          sb2_unlocked: sb2_unlocked ?? false,
+          sb3_unlocked: sb3_unlocked ?? false,
+          sb4_unlocked: sb4_unlocked ?? false,
+        },
         { onConflict: 'user_id' }
       );
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders });
