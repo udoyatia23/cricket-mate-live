@@ -30,18 +30,24 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
   const outTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!snapshot?.dismissal) return;
-    // Use ts to detect a new dismissal event
+    if (!snapshot?.ts) return;
     const ts = snapshot.ts;
+
+    // Only trigger when this is a NEW ts that also carries a dismissal
+    if (!snapshot.dismissal) return;
     if (ts <= lastDismissalTs.current) return;
+
+    // Record the ts of this dismissal so subsequent snapshots (next balls)
+    // with the same or newer ts but no new dismissal don't re-trigger
     lastDismissalTs.current = ts;
 
-    // Cancel any existing timers
+    // Cancel any running timers
     if (hideTimer.current) clearTimeout(hideTimer.current);
     if (outTimer.current) clearTimeout(outTimer.current);
 
-    // Show new data
-    setDismissalData(snapshot.dismissal);
+    // Capture the dismissal data at this moment
+    const captured = snapshot.dismissal;
+    setDismissalData(captured);
     setAnimOut(false);
     setVisible(true);
 
@@ -50,7 +56,7 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
       setAnimOut(true);
     }, 4300);
 
-    // After 5s hide completely
+    // After 5.2s hide completely
     hideTimer.current = setTimeout(() => {
       setVisible(false);
       setDismissalData(null);
@@ -60,7 +66,9 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       if (outTimer.current) clearTimeout(outTimer.current);
     };
-  }, [snapshot?.dismissal, snapshot?.ts]);
+    // Only depend on ts — avoids re-triggering on object reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot?.ts]);
 
   if (!visible || !dismissalData) return null;
 
