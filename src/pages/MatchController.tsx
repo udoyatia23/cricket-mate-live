@@ -226,7 +226,8 @@ const MatchController = () => {
     lastFoursCount.current = fours;
     lastSixesCount.current = sixes;
 
-    const snapshot = createSnapshot(deep, overlay || undefined, undefined);
+    // Always explicitly set overlay ('none' when no overlay) so scoreboards clear properly
+    const snapshot = createSnapshot(deep, overlay || 'none', undefined);
     snapshot.displayMode = activeDisplay;
 
     // 1. INSTANT: Broadcast via WebSocket (fastest, no DB involved)
