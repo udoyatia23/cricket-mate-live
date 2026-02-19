@@ -57,5 +57,15 @@ export interface ScoreboardSnapshot {
   tournamentId?: string;
   // Tournament name (for VS banner)
   tournamentName?: string;
+  // Dismissed batsman info (shows for 5s after wicket)
+  dismissal?: {
+    name: string;
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    dismissalType: string;
+    dismissedBy: string;
+  };
   ts: number;
 }
