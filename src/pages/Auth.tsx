@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trophy, LogIn, UserPlus, MessageCircle, CheckCircle } from 'lucide-react';
+import { LogIn, UserPlus, MessageCircle, CheckCircle } from 'lucide-react';
+import logoImg from '@/assets/cricstreampro.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -123,9 +124,8 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Trophy className="h-8 w-8 text-primary" />
-            <span className="font-display text-3xl font-bold tracking-wide">CricScorer</span>
+          <div className="flex items-center justify-center mb-3">
+            <img src={logoImg} alt="CricStream Pro" className="h-20 object-contain" />
           </div>
           <p className="text-muted-foreground">
             {isLogin ? 'Sign in to your account' : 'Create your account'}

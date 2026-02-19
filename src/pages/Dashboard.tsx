@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Trophy, Plus, Trash2, ArrowRight, LogOut, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, LogOut, Loader2, RefreshCw, Trophy } from 'lucide-react';
+import logoImg from '@/assets/cricstreampro.png';
 import { Tournament } from '@/types/cricket';
 import { getTournaments, addTournament, deleteTournament } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,8 +65,7 @@ const Dashboard = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <Link to="/" className="flex items-center gap-2">
-            <Trophy className="h-6 w-6 text-primary" />
-            <span className="font-display text-xl font-bold tracking-wide">CricScorer</span>
+            <img src={logoImg} alt="CricStream Pro" className="h-10 object-contain" />
           </Link>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
