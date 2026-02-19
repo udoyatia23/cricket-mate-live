@@ -83,12 +83,18 @@ const TourStatsDisplay = ({ tournamentId, mode, variant = 'forest' }: Props) => 
   const theme = THEMES[variant];
   const GOLD = theme.accent;
 
+  // ── Fetch matches whenever tournamentId OR mode changes ──────────────────────
+  // Previously only [tournamentId] was in deps — mode changes caused setLoading(true)
+  // without re-fetching, leaving the component stuck on "LOADING STATS..." forever.
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     getMatchesForTournament(tournamentId)
-      .then(ms => setAllMatches(ms))
-      .finally(() => setLoading(false));
-  }, [tournamentId]);
+      .then(ms => { if (!cancelled) setAllMatches(ms); })
+      .catch(() => { if (!cancelled) setAllMatches([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [tournamentId, mode]);
 
   const finished = useMemo(() => allMatches.filter(m => m.status === 'finished'), [allMatches]);
 
