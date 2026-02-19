@@ -110,15 +110,39 @@ const Scoreboard3Inner = () => {
       setSnapshot(snap);
       // Also reload full match data so BattingSummary/BowlingSummary have fresh player stats
       loadMatch();
+      // INSTANT PATCH: Update match state immediately from snapshot data
+      setMatch(prev => {
+        if (!prev || snap.inIdx < 0 || !prev.innings[snap.inIdx]) return prev;
+        const updated = JSON.parse(JSON.stringify(prev)) as typeof prev;
+        const inn = updated.innings[snap.inIdx];
+        inn.runs = snap.inn.runs;
+        inn.wickets = snap.inn.wickets;
+        inn.balls = snap.inn.balls;
+        const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
+        if (snap.s) {
+          const striker = bt.players.find(p => p.id === inn.currentStrikerId);
+          if (striker) { striker.runs = snap.s.runs; striker.ballsFaced = snap.s.bf; }
+        }
+        if (snap.ns) {
+          const nonStriker = bt.players.find(p => p.id === inn.currentNonStrikerId);
+          if (nonStriker) { nonStriker.runs = snap.ns.runs; nonStriker.ballsFaced = snap.ns.bf; }
+        }
+        return updated;
+      });
+      // Apply display mode from snapshot for instant sync
       if (snap.displayMode) {
-        setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: snap.overlay && snap.overlay !== 'none' ? snap.overlay : prev.overlay }));
-      } else if (snap.overlay && snap.overlay !== 'none') {
+        setDisplay(prev => ({
+          ...prev,
+          mode: snap.displayMode as DisplayMode,
+          overlay: snap.overlay !== undefined ? snap.overlay : prev.overlay,
+        }));
+      } else if (snap.overlay !== undefined) {
         setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
       }
-      if (snap.displayCustomText) {
+      if (snap.displayCustomText !== undefined) {
         setDisplay(prev => ({ ...prev, customText: snap.displayCustomText }));
       }
-      if (snap.displayMomPlayer) {
+      if (snap.displayMomPlayer !== undefined) {
         setDisplay(prev => ({ ...prev, momPlayer: snap.displayMomPlayer }));
       }
     };
