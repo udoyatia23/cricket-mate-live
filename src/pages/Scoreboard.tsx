@@ -5,6 +5,7 @@ import BroadcastOverlayBanner from '@/components/BroadcastOverlayBanner';
 import MatchSummaryCard from '@/components/MatchSummaryCard';
 import UpcomingMatchDisplay from '@/components/UpcomingMatchDisplay';
 import DrsTimer from '@/components/DrsTimer';
+import DismissalCard from '@/components/DismissalCard';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -752,6 +753,7 @@ const ScoreboardInner = () => {
   return (
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
       <div className={isBottomAligned ? 'w-full relative' : 'w-full px-2 md:px-4'}>
+        {isBottomAligned && <DismissalCard snapshot={snapshot} />}
         {renderContent()}
         {isBottomAligned && <ScoreboardTicker snapshot={snapshot} match={match} variant="dark" />}
         {isBottomAligned && <BoundaryAlert snapshot={snapshot} variant="dark" barHeight={62} />}

@@ -202,7 +202,7 @@ const MatchController = () => {
     return { fours, sixes };
   }, []);
 
-  const createSnapshot = useCallback((m: Match, overlay?: AnimationOverlay, boundaryAlert?: 'fours' | 'sixes'): ScoreboardSnapshot => {
+  const createSnapshot = useCallback((m: Match, overlay?: AnimationOverlay, boundaryAlert?: 'fours' | 'sixes', dismissal?: ScoreboardSnapshot['dismissal']): ScoreboardSnapshot => {
     const inn = m.currentInningsIndex >= 0 ? m.innings[m.currentInningsIndex] : null;
     const batTeam = inn ? (inn.battingTeamIndex === 0 ? m.team1 : m.team2) : null;
     const bowlTeam = inn ? (inn.bowlingTeamIndex === 0 ? m.team1 : m.team2) : null;
@@ -248,6 +248,7 @@ const MatchController = () => {
       boundaryAlert: boundaryAlert || undefined,
       tournamentId: m.tournamentId,
       tournamentName: tournamentName,
+      dismissal: dismissal || undefined,
       ts: Date.now(),
     };
   }, [tournamentVenue, tournamentName, countBoundaries]);
@@ -276,12 +277,16 @@ const MatchController = () => {
     };
   }, []);
 
+  const pendingDismissal = useRef<ScoreboardSnapshot['dismissal'] | null>(null);
+
   const save = useCallback((m: Match) => {
     const deep = JSON.parse(JSON.stringify(m)) as Match;
     setMatch(deep);
     scoringLock.current = false;
     const overlay = pendingOverlay.current;
     pendingOverlay.current = null;
+    const dismissal = pendingDismissal.current;
+    pendingDismissal.current = null;
 
     // Boundary alert: triggers once per 3-over block if a boundary was hit in that block
     // No auto-trigger boundary alert - only manual buttons trigger it
@@ -292,7 +297,7 @@ const MatchController = () => {
     lastSixesCount.current = sixes;
 
     // Always explicitly set overlay ('none' when no overlay) so scoreboards clear properly
-    const snapshot = createSnapshot(deep, overlay || 'none', undefined);
+    const snapshot = createSnapshot(deep, overlay || 'none', undefined, dismissal || undefined);
     snapshot.displayMode = activeDisplay;
 
     // 1. INSTANT: Broadcast via WebSocket (fastest, no DB involved)
@@ -711,6 +716,22 @@ const MatchController = () => {
   const addWicketWithRuns = (dismissalType: string, runs: number) => {
     if (!currentInnings || !striker || !bowler) { scoringLock.current = false; return; }
     sendOverlay('wicket');
+
+    // Capture dismissed batsman stats BEFORE updating state
+    const isRunOutNS = dismissalType === 'run_out_non_striker';
+    const dismissedPlayer = isRunOutNS ? nonStriker : striker;
+    if (dismissedPlayer) {
+      pendingDismissal.current = {
+        name: dismissedPlayer.name,
+        runs: dismissedPlayer.runs + (isRunOutNS ? 0 : runs),
+        balls: dismissedPlayer.ballsFaced + (isRunOutNS ? 0 : 1),
+        fours: dismissedPlayer.fours,
+        sixes: dismissedPlayer.sixes,
+        dismissalType,
+        dismissedBy: bowler.name,
+      };
+    }
+
     const updated = JSON.parse(JSON.stringify(match)) as Match;
     const inn = updated.innings[updated.currentInningsIndex];
     const bt = inn.battingTeamIndex === 0 ? updated.team1 : updated.team2;
