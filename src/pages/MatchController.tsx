@@ -12,6 +12,48 @@ import { setDisplayState, DisplayMode, AnimationOverlay } from '@/lib/displaySyn
 import { supabase } from '@/integrations/supabase/client';
 import { BallDot, EmptyBallDot } from '@/components/BallDot';
 
+// Reusable autocomplete input with dropdown suggestions
+const AutocompleteInput = ({
+  value, onChange, suggestions, placeholder
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const filtered = suggestions.filter(s =>
+    s.toLowerCase().includes(value.toLowerCase())
+  );
+  const showDropdown = open && filtered.length > 0;
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        className="bg-white text-black border-white"
+      />
+      {showDropdown && (
+        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-40 overflow-y-auto">
+          {filtered.map(name => (
+            <div
+              key={name}
+              onMouseDown={() => { onChange(name); setOpen(false); }}
+              className="px-3 py-2 text-black text-sm cursor-pointer hover:bg-cyan-100"
+            >
+              {name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MatchController = () => {
   const { id } = useParams<{ id: string }>();
   const [match, setMatch] = useState<Match | null>(null);
@@ -1420,21 +1462,54 @@ const MatchController = () => {
               const bowlingIdx = battingIdx === 0 ? 1 : 0;
               const batTeamName = battingIdx === 0 ? match.team1.name : match.team2.name;
               const bowlTeamName = bowlingIdx === 0 ? match.team1.name : match.team2.name;
+
+              // For 2nd innings: suggest batters from 1st innings bowlers, bowler from 1st innings batters
+              const inn1 = match.innings[0];
+              const batterSuggestions: string[] = inningsDialogType === 1 && inn1
+                ? [...new Set(inn1.events.filter(e => e.bowlerId).map(e => {
+                    const bowlingTeam = inn1.bowlingTeamIndex === 0 ? match.team1 : match.team2;
+                    const p = bowlingTeam.players.find(pl => pl.id === e.bowlerId);
+                    return p?.name || '';
+                  }).filter(Boolean))]
+                : [];
+              const bowlerSuggestions: string[] = inningsDialogType === 1 && inn1
+                ? [...new Set(inn1.events.filter(e => e.batsmanId).map(e => {
+                    const battingTeam = inn1.battingTeamIndex === 0 ? match.team1 : match.team2;
+                    const p = battingTeam.players.find(pl => pl.id === e.batsmanId);
+                    return p?.name || '';
+                  }).filter(Boolean))]
+                : [];
+
               return (
                 <div className="space-y-4">
                   <p className="text-center text-red-600 font-bold text-lg">{batTeamName}</p>
-                  <div>
+                  <div className="relative">
                     <label className="block text-center font-bold text-black text-lg mb-1">Striker</label>
-                    <Input value={strikerName} onChange={e => setStrikerName(e.target.value)} placeholder="Enter striker name" className="bg-white text-black border-white" />
+                    <AutocompleteInput
+                      value={strikerName}
+                      onChange={setStrikerName}
+                      suggestions={batterSuggestions}
+                      placeholder="Enter striker name"
+                    />
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-center font-bold text-black text-lg mb-1">Non-Striker</label>
-                    <Input value={nonStrikerName} onChange={e => setNonStrikerName(e.target.value)} placeholder="Enter non-striker name" className="bg-white text-black border-white" />
+                    <AutocompleteInput
+                      value={nonStrikerName}
+                      onChange={setNonStrikerName}
+                      suggestions={batterSuggestions}
+                      placeholder="Enter non-striker name"
+                    />
                   </div>
                   <p className="text-center text-red-600 font-bold text-lg">{bowlTeamName}</p>
-                  <div>
+                  <div className="relative">
                     <label className="block text-center font-bold text-black text-lg mb-1">Bowler</label>
-                    <Input value={bowlerName} onChange={e => setBowlerName(e.target.value)} placeholder="Enter bowler name" className="bg-white text-black border-white" />
+                    <AutocompleteInput
+                      value={bowlerName}
+                      onChange={setBowlerName}
+                      suggestions={bowlerSuggestions}
+                      placeholder="Enter bowler name"
+                    />
                   </div>
                   <div className="flex gap-3 justify-center pt-2">
                     <Button onClick={startInningsWithPlayers} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6">
