@@ -90,7 +90,11 @@ const Scoreboard3Inner = () => {
         if (data?.snapshot && mounted) {
           const snap = data.snapshot as ScoreboardSnapshot;
           setSnapshot(snap);
-          if (snap.overlay && snap.overlay !== 'none') setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+          // DO NOT restore overlay on initial load - overlays are transient animation events only.
+          // Only restore display mode, always clear overlay to 'none' on page load.
+          if (snap.displayMode) {
+            setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: 'none' }));
+          }
           lastPayloadTs.current = snap.ts || Date.now();
         }
       } catch (e) { console.error('[Scoreboard3] score_live fetch failed:', e); }
