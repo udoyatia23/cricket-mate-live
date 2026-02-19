@@ -267,12 +267,15 @@ const MatchController = () => {
   const sendDisplay = (mode: DisplayMode) => {
     if (!id) return;
     setActiveDisplay(mode);
+    // Clear any pending overlay so scoring events don't re-trigger animation
+    pendingOverlay.current = null;
     const ds = { mode, overlay: 'none' as AnimationOverlay, timestamp: Date.now() };
     broadcastPayload({ display_state: ds });
-    setDisplayState(id, { mode });
+    setDisplayState(id, { mode, overlay: 'none' });
     // INSTANT: Also upsert score_live with display mode for fast sync
+    // Always explicitly send overlay: 'none' so scoreboards clear any existing animation
     if (match) {
-      const snapshot = createSnapshot(match);
+      const snapshot = createSnapshot(match, 'none');
       snapshot.displayMode = mode;
       (supabase.from('score_live') as any).upsert(
         { match_id: id, snapshot, updated_at: new Date().toISOString() },

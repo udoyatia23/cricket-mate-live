@@ -107,8 +107,10 @@ const ScoreboardInner = () => {
         if (data?.snapshot && mounted) {
           const snap = data.snapshot as ScoreboardSnapshot;
           setSnapshot(snap);
-          if (snap.overlay && snap.overlay !== 'none') {
-            setDisplay(prev => ({ ...prev, overlay: snap.overlay! }));
+          // DO NOT restore overlay on initial load - overlays are transient events only.
+          // Only set display mode from snapshot, never re-trigger animation banners on page load.
+          if (snap.displayMode) {
+            setDisplay(prev => ({ ...prev, mode: snap.displayMode as DisplayMode, overlay: 'none' }));
           }
           lastPayloadTs.current = snap.ts || Date.now();
           console.log(`[Scoreboard] Initial snapshot loaded, ts=${snap.ts}`);
