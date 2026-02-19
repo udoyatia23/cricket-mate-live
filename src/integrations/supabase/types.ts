@@ -144,6 +144,9 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          sb2_unlocked: boolean
+          sb3_unlocked: boolean
+          sb4_unlocked: boolean
           status: string
           subscription_end: string | null
           updated_at: string
@@ -153,6 +156,9 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          sb2_unlocked?: boolean
+          sb3_unlocked?: boolean
+          sb4_unlocked?: boolean
           status?: string
           subscription_end?: string | null
           updated_at?: string
@@ -162,6 +168,9 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          sb2_unlocked?: boolean
+          sb3_unlocked?: boolean
+          sb4_unlocked?: boolean
           status?: string
           subscription_end?: string | null
           updated_at?: string
