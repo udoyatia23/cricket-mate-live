@@ -36,18 +36,14 @@ export default function BroadcastOverlayBanner({ overlay, onHide }: BroadcastOve
     // Slight delay for slide-up animation
     animInTimer.current = setTimeout(() => setAnimIn(true), 40);
 
-    // Decision overlays (out/not_out) stay until PENDING clears them
-    // Other overlays auto-hide after 5 seconds
-    const isDecision = overlay === 'out' || overlay === 'not_out';
-    if (!isDecision) {
-      hideTimer.current = setTimeout(() => {
-        setAnimIn(false);
-        setTimeout(() => {
-          setVisible(false);
-          onHide?.();
-        }, 500);
-      }, 5000);
-    }
+    // All overlays (including out/not_out) auto-hide after 5 seconds
+    hideTimer.current = setTimeout(() => {
+      setAnimIn(false);
+      setTimeout(() => {
+        setVisible(false);
+        onHide?.();
+      }, 500);
+    }, 5000);
 
     return () => {
       if (animInTimer.current) clearTimeout(animInTimer.current);

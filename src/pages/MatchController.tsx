@@ -377,10 +377,8 @@ const MatchController = () => {
         if (error) console.error('score_live overlay upsert failed:', error);
       });
     }
-    // 'out' and 'not_out' are Decision overlays - they stay until PENDING is pressed
-    // Other overlays (four, six, wicket, etc.) auto-clear after 6s
-    if (overlay !== 'none' && overlay !== 'out' && overlay !== 'not_out') {
-      // 6s: banner shows for 5s + 1s buffer for exit animation
+    // All overlays (including out/not_out) auto-clear after 6s (banner shows 5s + 1s exit buffer)
+    if (overlay !== 'none') {
       setTimeout(() => {
         broadcastPayload({ display_state: { overlay: 'none', timestamp: Date.now() } });
         setDisplayState(id, { overlay: 'none' });
