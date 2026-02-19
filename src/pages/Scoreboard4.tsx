@@ -12,6 +12,7 @@ import { getDisplayState, DisplayState, AnimationOverlay, DisplayMode } from '@/
 import { supabase } from '@/integrations/supabase/client';
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import VSBannerDisplay, { vsThemeGreen } from '@/components/VSBannerDisplay';
+import { BallDot, EmptyBallDot } from '@/components/BallDot';
 
 // ErrorBoundary
 class Scoreboard4ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -240,54 +241,13 @@ const Scoreboard4Inner = () => {
   const venue = s?.venue || '';
 
   // ===========================
-  // BALL TRACKER (reference style)
+  // BALL TRACKER — shared BallDot component (reference style)
   // ===========================
-  const BallDot = ({ event }: { event: BallEvent }) => {
-    let bg = '#2d2d2d';
-    let border = '#555';
-    let text = String(event.runs);
-    let textColor = '#fff';
-    let isSquare = false;
-
-    if (event.isWicket) {
-      bg = '#c62828'; border = '#c62828'; text = 'W'; textColor = '#fff';
-    } else if (event.runs === 6) {
-      bg = '#1b5e20'; border = '#2e7d32'; textColor = '#fff';
-    } else if (event.runs === 4) {
-      bg = '#e65100'; border = '#bf360c'; textColor = '#fff'; isSquare = true;
-    } else if (event.runs === 0) {
-      bg = '#fdd835'; border = '#f9a825'; textColor = '#111';
-    } else if (event.type === 'wide') {
-      bg = '#6d4c41'; border = '#795548'; text = 'Wd'; textColor = '#ffcc02';
-    } else if (event.type === 'noBall') {
-      bg = '#6d4c41'; border = '#795548'; text = 'Nb'; textColor = '#ffcc02';
-    } else {
-      bg = '#333'; border = '#555'; textColor = '#fff';
-    }
-
-    return (
-      <div
-        className="flex items-center justify-center text-[10px] font-black flex-shrink-0"
-        style={{
-          width: '22px', height: '22px',
-          backgroundColor: bg,
-          border: `2px solid ${border}`,
-          borderRadius: isSquare ? '3px' : '50%',
-          color: textColor,
-          fontFamily: 'Oswald, sans-serif',
-        }}
-      >
-        {text}
-      </div>
-    );
-  };
-
-  const EmptyDot = () => (
-    <div
-      className="flex items-center justify-center flex-shrink-0"
-      style={{ width: '22px', height: '22px', backgroundColor: '#3a3a3a', border: '2px solid #555', borderRadius: '50%' }}
-    />
+  const BallDotSB4 = ({ event }: { event: BallEvent }) => (
+    <BallDot event={event} size="md" theme="dark" />
   );
+
+  const EmptyDot = () => <EmptyBallDot size="md" theme="dark" />;
 
   // ===========================
   // TEAM LOGO / BADGE
@@ -488,7 +448,7 @@ const Scoreboard4Inner = () => {
           <div className="flex items-center gap-2 px-4 flex-shrink-0">
             <span className="font-display font-bold text-white/70 uppercase tracking-widest" style={{ fontSize: '10px' }}>THIS OVER</span>
             <div className="flex items-center gap-1">
-              {currentOverBalls.map((e, i) => <BallDot key={i} event={e} />)}
+              {currentOverBalls.map((e, i) => <BallDotSB4 key={i} event={e} />)}
               {Array.from({ length: Math.max(0, bpo - currentOverBalls.length) }).map((_, i) => (
                 <EmptyDot key={`e-${i}`} />
               ))}
