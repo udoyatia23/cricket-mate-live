@@ -127,7 +127,18 @@ const MatchController = () => {
 
   useEffect(() => {
     if (id) {
-      getMatch(id).then(m => setMatch(m || null));
+      getMatch(id).then(m => {
+        if (m) {
+          // Auto-set status to 'live' when controller opens an upcoming match
+          if (m.status === 'upcoming') {
+            m.status = 'live';
+            updateMatch(m).catch(console.error);
+          }
+          setMatch(m);
+        } else {
+          setMatch(null);
+        }
+      });
     }
   }, [id]);
 
