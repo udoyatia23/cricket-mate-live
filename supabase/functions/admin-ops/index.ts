@@ -17,8 +17,17 @@ Deno.serve(async (req) => {
   const { pathname } = new URL(req.url);
   const action = pathname.split('/').pop();
 
-  // Special: init-admin - public endpoint, only works if no admin exists yet
+  // Special: init-admin - requires ADMIN_INIT_SECRET, only works if no admin exists yet
   if (action === 'init-admin') {
+    const body = await req.json();
+    const { secret, email, password } = body;
+
+    // Require pre-shared secret
+    const initSecret = Deno.env.get('ADMIN_INIT_SECRET');
+    if (!initSecret || secret !== initSecret) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+
     const { count } = await supabaseAdmin
       .from('user_roles')
       .select('*', { count: 'exact', head: true })
@@ -27,9 +36,6 @@ Deno.serve(async (req) => {
     if (count && count > 0) {
       return new Response(JSON.stringify({ error: 'Admin already exists' }), { status: 400, headers: corsHeaders });
     }
-
-    const body = await req.json();
-    const { email, password } = body;
 
     const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
