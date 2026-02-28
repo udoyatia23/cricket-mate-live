@@ -103,7 +103,7 @@ const MatchController = () => {
   const lastFoursCount = useRef(-1);
   const lastSixesCount = useRef(-1);
   // Scoreboard permissions
-  const [sbPerms, setSbPerms] = useState({ sb2: false, sb3: false, sb4: false });
+  const [sbPerms, setSbPerms] = useState({ sb2: false, sb3: false, sb4: false, sb5: false });
 
   useEffect(() => {
     const fetchPerms = async () => {
@@ -119,6 +119,7 @@ const MatchController = () => {
           sb2: data.sb2_unlocked ?? false,
           sb3: data.sb3_unlocked ?? false,
           sb4: data.sb4_unlocked ?? false,
+          sb5: data.sb5_unlocked ?? false,
         });
       } catch { /* ignore */ }
     };
@@ -933,6 +934,7 @@ const MatchController = () => {
             { num: 2, key: 'sb2' as const, path: `/scoreboard2/${match.id}` },
             { num: 3, key: 'sb3' as const, path: `/scoreboard3/${match.id}` },
             { num: 4, key: 'sb4' as const, path: `/scoreboard4/${match.id}` },
+            { num: 5, key: 'sb5' as const, path: `/scoreboard5/${match.id}` },
           ].map(({ num, key, path }) =>
             sbPerms[key] ? (
               <Link key={num} to={path} target="_blank">
