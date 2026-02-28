@@ -21,6 +21,7 @@ interface UserRecord {
   sb2_unlocked: boolean;
   sb3_unlocked: boolean;
   sb4_unlocked: boolean;
+  sb5_unlocked: boolean;
 }
 
 const statusColor = (s: string) => {
@@ -82,6 +83,7 @@ const AdminUsers = () => {
           sb2_unlocked: edit.sb2_unlocked ?? user.sb2_unlocked,
           sb3_unlocked: edit.sb3_unlocked ?? user.sb3_unlocked,
           sb4_unlocked: edit.sb4_unlocked ?? user.sb4_unlocked,
+          sb5_unlocked: edit.sb5_unlocked ?? user.sb5_unlocked,
         }),
       }
     );
@@ -239,8 +241,8 @@ const AdminUsers = () => {
                           <Unlock className="h-3.5 w-3.5" /> Scoreboard Permissions
                         </p>
                         <div className="text-xs text-muted-foreground mb-1">Scoreboard 1 is always available. Unlock extra scoreboards below:</div>
-                        {[2, 3, 4].map(num => {
-                          const key = `sb${num}_unlocked` as 'sb2_unlocked' | 'sb3_unlocked' | 'sb4_unlocked';
+                        {[2, 3, 4, 5].map(num => {
+                          const key = `sb${num}_unlocked` as 'sb2_unlocked' | 'sb3_unlocked' | 'sb4_unlocked' | 'sb5_unlocked';
                           const isUnlocked = edit[key] ?? user[key] ?? false;
                           return (
                             <div key={num} className="flex items-center justify-between">

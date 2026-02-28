@@ -14,6 +14,7 @@ import Scoreboard from "./pages/Scoreboard";
 import Scoreboard2 from "./pages/Scoreboard2";
 import Scoreboard3 from "./pages/Scoreboard3";
 import Scoreboard4 from "./pages/Scoreboard4";
+import Scoreboard5 from "./pages/Scoreboard5";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminRoute from "./pages/admin/AdminRoute";
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/scoreboard2/:id" element={<Scoreboard2 />} />
             <Route path="/scoreboard3/:id" element={<Scoreboard3 />} />
             <Route path="/scoreboard4/:id" element={<Scoreboard4 />} />
+            <Route path="/scoreboard5/:id" element={<Scoreboard5 />} />
             {/* Admin Panel */}
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

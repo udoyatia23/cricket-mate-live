@@ -147,6 +147,7 @@ export type Database = {
           sb2_unlocked: boolean
           sb3_unlocked: boolean
           sb4_unlocked: boolean
+          sb5_unlocked: boolean
           status: string
           subscription_end: string | null
           updated_at: string
@@ -159,6 +160,7 @@ export type Database = {
           sb2_unlocked?: boolean
           sb3_unlocked?: boolean
           sb4_unlocked?: boolean
+          sb5_unlocked?: boolean
           status?: string
           subscription_end?: string | null
           updated_at?: string
@@ -171,6 +173,7 @@ export type Database = {
           sb2_unlocked?: boolean
           sb3_unlocked?: boolean
           sb4_unlocked?: boolean
+          sb5_unlocked?: boolean
           status?: string
           subscription_end?: string | null
           updated_at?: string
