@@ -301,14 +301,14 @@ const Scoreboard5Inner = () => {
           </div>
 
           {/* === BATTING SECTION (Blue, rounded-right) === */}
-          <div className="flex items-center flex-shrink-0 relative z-10" style={{
+          <div className="flex items-center flex-1 min-w-0 relative z-10" style={{
             background: `linear-gradient(135deg, ${BLUE_DARK} 0%, ${BLUE} 100%)`,
             height: BAR_H,
             borderRadius: `4px ${BAR_H / 2}px ${BAR_H / 2}px 4px`,
             paddingLeft: `${LOGO_SIZE / 2 + 6}px`,
             paddingRight: '18px',
           }}>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 justify-end w-full">
               {/* Striker */}
               {strikerData && (
                 <div className="flex items-center gap-1.5">
