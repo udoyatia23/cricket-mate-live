@@ -264,6 +264,94 @@ const Scoreboard5Inner = () => {
     </div>
   );
 
+  // === PILL TICKER (rotates RUN RATE / Result / Win %) ===
+  const PillTicker = ({ crr, rrr, need, remainBalls, snapshot: snap, match: m }: {
+    crr: string; rrr: string | null; need: number | null; remainBalls: number;
+    snapshot: ScoreboardSnapshot | null; match: Match;
+  }) => {
+    const [tickIdx, setTickIdx] = useState(0);
+    const [anim, setAnim] = useState(false);
+
+    // Build items
+    type TItem = { label: string; value: string; color?: string };
+    const items: TItem[] = [];
+
+    // 1. CRR or RRR
+    if (rrr) {
+      items.push({ label: 'REQUIRED RUN RATE', value: rrr, color: '#c62828' });
+    } else {
+      items.push({ label: 'RUN RATE', value: crr, color: '#1a1a1a' });
+    }
+
+    // 2. Result / Target
+    if (need !== null && need > 0 && remainBalls > 0) {
+      items.push({ label: 'TARGET', value: `${need} RUNS FROM ${remainBalls} BALLS`, color: '#1565c0' });
+    } else if (m.status === 'finished' && m.winMargin) {
+      items.push({ label: 'RESULT', value: `${m.winner || ''} WON BY ${m.winMargin}`.trim(), color: '#2e7d32' });
+    }
+
+    // 3. Win Probability
+    if (m.innings.length >= 2 && m.innings[1] && !m.innings[1].isComplete) {
+      const inn1 = m.innings[0];
+      const inn2 = m.innings[1];
+      const bpoVal = m.ballsPerOver || 6;
+      const totalB = m.overs * bpoVal;
+      const tgt = inn1.runs + 1;
+      const rn = tgt - inn2.runs;
+      const bl = totalB - inn2.balls;
+      const wl = 10 - inn2.wickets;
+      if (bl > 0 && rn > 0 && wl > 0) {
+        const crrVal = inn2.balls > 0 ? (inn2.runs / inn2.balls) * bpoVal : 0;
+        const rrrVal = (rn / bl) * bpoVal;
+        const ballRes = bl / totalB;
+        const wktRes = wl / 10;
+        const resFactor = ballRes * 0.6 + wktRes * 0.4;
+        const rateAdv = rrrVal > 0 ? (crrVal / rrrVal - 1) : 0;
+        let chasingProb = 50 + rateAdv * 25 + (resFactor - 0.5) * 20;
+        chasingProb = Math.max(5, Math.min(95, chasingProb));
+        const isT2 = inn2.battingTeamIndex === 1;
+        const t1p = isT2 ? Math.round(100 - chasingProb) : Math.round(chasingProb);
+        const t2p = 100 - t1p;
+        items.push({
+          label: 'WIN %',
+          value: `${m.team1.name.slice(0, 3).toUpperCase()} ${t1p}% · ${m.team2.name.slice(0, 3).toUpperCase()} ${t2p}%`,
+          color: '#6a1b9a',
+        });
+      }
+    }
+
+    useEffect(() => {
+      if (items.length <= 1) { setTickIdx(0); return; }
+      const iv = setInterval(() => {
+        setAnim(true);
+        setTimeout(() => {
+          setTickIdx(prev => (prev + 1) % items.length);
+          setAnim(false);
+        }, 400);
+      }, 10000);
+      return () => clearInterval(iv);
+    }, [items.length]);
+
+    const safe = tickIdx % Math.max(items.length, 1);
+    const item = items[safe];
+
+    return (
+      <div className="flex items-center gap-1.5 overflow-hidden" style={{ marginTop: '-3px', height: '16px' }}>
+        <div
+          className={`flex items-center gap-1.5 ${anim ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'}`}
+          style={{ transition: 'opacity 0.4s ease, transform 0.4s ease' }}
+        >
+          <span className="font-display font-bold tracking-wider uppercase" style={{ fontSize: '10px', color: '#555' }}>
+            {item.label}
+          </span>
+          <span className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: item.color || '#1a1a1a' }}>
+            {item.value}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   // ===========================
   // DEFAULT SCORE BAR — Reference-matching broadcast design
   // Layout: [●BatLogo] [Striker | NonStriker] [Abbr SCORE Overs / RRR] [Bowler | BallTracker] [BowlLogo●]
@@ -365,28 +453,8 @@ const Scoreboard5Inner = () => {
                 {getOversString(displayBalls, bpo)}
               </span>
             </div>
-            {/* Bottom: RRR or CRR */}
-            <div className="flex items-center gap-1.5" style={{ marginTop: '-3px' }}>
-              {rrr ? (
-                <>
-                  <span className="font-display font-bold tracking-wider uppercase" style={{ fontSize: '10px', color: '#555' }}>
-                    REQUIRED RUN RATE
-                  </span>
-                  <span className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: '#c62828' }}>
-                    {rrr}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="font-display font-bold tracking-wider uppercase" style={{ fontSize: '10px', color: '#555' }}>
-                    RUN RATE
-                  </span>
-                  <span className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: '#1a1a1a' }}>
-                    {crr}
-                  </span>
-                </>
-              )}
-            </div>
+            {/* Bottom: Rotating ticker — RUN RATE / Result / Win % */}
+            <PillTicker crr={crr} rrr={rrr} need={need} remainBalls={remainBalls} snapshot={s} match={match} />
           </div>
 
           {/* === RIGHT: Bowling section (Green, rounded-left, red border) === */}
