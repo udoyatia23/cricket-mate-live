@@ -273,33 +273,51 @@ const Scoreboard5Inner = () => {
     const BLUE_DARK = '#1a1f6e';
     const GREEN_DARK = '#0d4a2b';
     const GREEN_MID = '#126b3a';
-    const WHITE_BG = 'linear-gradient(180deg, #f5f5f5 0%, #d8d8d8 50%, #e8e8e8 100%)';
     const BORDER_GOLD = '#8b7530';
 
     return (
       <div className="w-full" style={{ fontFamily: 'Oswald, system-ui, sans-serif' }}>
-        {/* Thin gold top line */}
-        <div style={{ height: '3px', background: `linear-gradient(90deg, ${BLUE_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
+        <div className="flex items-end w-full" style={{ height: '62px' }}>
 
-        <div className="flex items-stretch w-full" style={{ height: '52px' }}>
-
-          {/* === LEFT: Batting team section (Blue/Purple bg) === */}
-          <div className="flex items-center flex-shrink-0" style={{ background: `linear-gradient(135deg, ${BLUE_DARK} 0%, ${BLUE} 100%)` }}>
-            {/* Batting team logo */}
-            <div className="px-2 flex items-center justify-center" style={{ minWidth: '52px' }}>
-              <TeamBadge team={batTeamObj} size={36} />
+          {/* === LEFT: Batting team logo (outside the bar, overlapping) === */}
+          <div className="flex-shrink-0 relative z-20 flex items-center justify-center" style={{ width: '62px', height: '62px', marginRight: '-8px' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: `linear-gradient(135deg, ${BLUE_DARK}, ${BLUE})`,
+              border: '3px solid rgba(255,255,255,0.25)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {batTeamObj.logo ? (
+                <img src={batTeamObj.logo} alt={batTeamObj.name} className="object-contain" style={{ width: 38, height: 38 }} />
+              ) : (
+                <span className="font-display font-black text-white" style={{ fontSize: '14px' }}>
+                  {batTeamObj.name.slice(0, 3).toUpperCase()}
+                </span>
+              )}
             </div>
+          </div>
 
+          {/* === LEFT: Batting section (Blue, rounded left, tapered right) === */}
+          <div className="flex items-center flex-shrink-0 relative z-10" style={{
+            background: `linear-gradient(135deg, ${BLUE_DARK} 0%, ${BLUE} 100%)`,
+            height: '48px',
+            borderRadius: '6px 0 0 6px',
+            paddingLeft: '12px',
+            paddingRight: '16px',
+            clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%)',
+            marginRight: '-6px',
+          }}>
             {/* Batsmen info */}
-            <div className="flex items-center gap-4 px-3 pr-4">
+            <div className="flex items-center gap-5">
               {/* Striker */}
               {strikerData && (
                 <div className="flex items-center gap-1.5">
-                  <span style={{ color: '#fbbf24', fontSize: '9px', fontWeight: 900 }}>▶</span>
-                  <span className="font-display font-bold text-white uppercase tracking-wider" style={{ fontSize: '15px' }}>
+                  <span style={{ color: '#fbbf24', fontSize: '10px', fontWeight: 900 }}>▶</span>
+                  <span className="font-display font-bold text-white uppercase tracking-wider" style={{ fontSize: '16px' }}>
                     {strikerData.name.split(' ').slice(-1)[0]}
                   </span>
-                  <span className="font-display font-black text-white tabular-nums" style={{ fontSize: '17px' }}>
+                  <span className="font-display font-black text-white tabular-nums" style={{ fontSize: '19px' }}>
                     {strikerData.runs}
                   </span>
                   <span className="font-display text-white/50 tabular-nums" style={{ fontSize: '12px' }}>
@@ -309,11 +327,11 @@ const Scoreboard5Inner = () => {
               )}
               {/* Non-striker */}
               {nonStrikerData && (
-                <div className="flex items-center gap-1.5">
-                  <span className="font-display font-bold text-white/70 uppercase tracking-wider" style={{ fontSize: '15px' }}>
+                <div className="flex items-center gap-1.5 ml-2">
+                  <span className="font-display font-bold text-white/75 uppercase tracking-wider" style={{ fontSize: '16px' }}>
                     {nonStrikerData.name.split(' ').slice(-1)[0]}
                   </span>
-                  <span className="font-display font-bold text-white/80 tabular-nums" style={{ fontSize: '16px' }}>
+                  <span className="font-display font-bold text-white/85 tabular-nums" style={{ fontSize: '17px' }}>
                     {nonStrikerData.runs}
                   </span>
                   <span className="font-display text-white/40 tabular-nums" style={{ fontSize: '12px' }}>
@@ -324,33 +342,36 @@ const Scoreboard5Inner = () => {
             </div>
           </div>
 
-          {/* === CENTER: Score pill (white/silver bg with rounded shape) === */}
-          <div className="flex flex-col items-center justify-center flex-shrink-0 relative" style={{
-            background: WHITE_BG,
-            minWidth: '200px',
-            borderLeft: `3px solid ${BORDER_GOLD}`,
-            borderRight: `3px solid ${BORDER_GOLD}`,
+          {/* === CENTER: Score pill (white/silver, pill-shaped) === */}
+          <div className="flex flex-col items-center justify-center flex-shrink-0 relative z-30" style={{
+            background: 'linear-gradient(180deg, #ffffff 0%, #e8e8e8 40%, #d0d0d0 70%, #e0e0e0 100%)',
+            height: '52px',
+            minWidth: '220px',
+            borderRadius: '26px',
+            border: `2.5px solid ${BORDER_GOLD}`,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            padding: '0 20px',
           }}>
             {/* Top row: Abbr + Score + Overs */}
-            <div className="flex items-center gap-2">
-              <span className="font-display font-black text-gray-700 tracking-wider" style={{ fontSize: '15px' }}>
+            <div className="flex items-center gap-2" style={{ marginTop: '-1px' }}>
+              <span className="font-display font-black text-gray-600 tracking-wider" style={{ fontSize: '16px' }}>
                 {batAbbr}
               </span>
-              <span className="font-display font-black tabular-nums" style={{ fontSize: '30px', color: '#1a1a1a', letterSpacing: '-0.02em', lineHeight: 1 }}>
+              <span className="font-display font-black tabular-nums" style={{ fontSize: '32px', color: '#1a1a1a', letterSpacing: '-0.02em', lineHeight: 1 }}>
                 {displayRuns}-{displayWickets}
               </span>
-              <span className="font-display font-bold text-gray-500 tabular-nums" style={{ fontSize: '15px' }}>
+              <span className="font-display font-bold text-gray-500 tabular-nums" style={{ fontSize: '16px' }}>
                 {getOversString(displayBalls, bpo)}
               </span>
             </div>
             {/* Bottom row: RRR or CRR */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5" style={{ marginTop: '-2px' }}>
               {rrr ? (
                 <>
                   <span className="font-display font-bold tracking-wider uppercase" style={{ fontSize: '11px', color: '#555' }}>
                     REQUIRED RUN RATE
                   </span>
-                  <span className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: '#c62828' }}>
+                  <span className="font-display font-black tabular-nums" style={{ fontSize: '14px', color: '#c62828' }}>
                     {rrr}
                   </span>
                 </>
@@ -359,7 +380,7 @@ const Scoreboard5Inner = () => {
                   <span className="font-display font-bold tracking-wider uppercase" style={{ fontSize: '11px', color: '#555' }}>
                     RUN RATE
                   </span>
-                  <span className="font-display font-black tabular-nums" style={{ fontSize: '13px', color: '#1a1a1a' }}>
+                  <span className="font-display font-black tabular-nums" style={{ fontSize: '14px', color: '#1a1a1a' }}>
                     {crr}
                   </span>
                 </>
@@ -367,19 +388,25 @@ const Scoreboard5Inner = () => {
             </div>
           </div>
 
-          {/* === RIGHT: Bowling team section (Green bg) === */}
-          <div className="flex items-center flex-1 min-w-0" style={{
+          {/* === RIGHT: Bowling section (Green, tapered left, rounded right) === */}
+          <div className="flex items-center flex-1 min-w-0 relative z-10" style={{
             background: `linear-gradient(135deg, ${GREEN_DARK} 0%, ${GREEN_MID} 100%)`,
-            border: `2px solid #b71c1c`,
+            height: '48px',
+            borderRadius: '0 6px 6px 0',
+            paddingLeft: '20px',
+            paddingRight: '8px',
+            border: '2px solid #b71c1c',
             borderLeft: 'none',
+            clipPath: 'polygon(12px 0, 100% 0, 100% 100%, 12px 100%, 0 50%)',
+            marginLeft: '-6px',
           }}>
             {/* Bowler info */}
             {bowlerData && (
-              <div className="flex items-center gap-1.5 px-3 flex-shrink-0">
-                <span className="font-display font-bold text-white uppercase tracking-wider" style={{ fontSize: '15px' }}>
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
+                <span className="font-display font-bold text-white uppercase tracking-wider" style={{ fontSize: '16px' }}>
                   {bowlerData.name.split(' ').slice(-1)[0]}
                 </span>
-                <span className="font-display font-bold text-white tabular-nums" style={{ fontSize: '15px' }}>
+                <span className="font-display font-bold text-white tabular-nums" style={{ fontSize: '16px' }}>
                   {bowlerData.w}-{bowlerData.r}
                 </span>
                 <span className="font-display text-white/50 tabular-nums" style={{ fontSize: '12px' }}>
@@ -389,7 +416,7 @@ const Scoreboard5Inner = () => {
             )}
 
             {/* Ball tracker */}
-            <div className="flex items-center gap-1 px-2 flex-shrink-0">
+            <div className="flex items-center gap-1 px-3 flex-shrink-0">
               {currentOverBalls.map((e, i) => <BallDot key={i} event={e} size="md" theme="dark" />)}
               {Array.from({ length: Math.max(0, bpo - currentOverBalls.length) }).map((_, i) => (
                 <EmptyBallDot key={`e-${i}`} size="md" theme="dark" />
@@ -400,14 +427,17 @@ const Scoreboard5Inner = () => {
             <div className="flex-1" />
 
             {/* Bowling team logo */}
-            <div className="px-2 flex items-center justify-center" style={{ minWidth: '52px' }}>
-              <TeamBadge team={bowlTeamObj} size={36} />
+            <div className="flex-shrink-0 flex items-center justify-center" style={{ width: '56px', height: '48px' }}>
+              {bowlTeamObj.logo ? (
+                <img src={bowlTeamObj.logo} alt={bowlTeamObj.name} className="object-contain" style={{ width: 36, height: 36 }} />
+              ) : (
+                <span className="font-display font-black text-white" style={{ fontSize: '13px' }}>
+                  {bowlTeamObj.name.slice(0, 3).toUpperCase()}
+                </span>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Thin gold bottom line */}
-        <div style={{ height: '3px', background: `linear-gradient(90deg, ${BLUE_DARK}, ${GOLD}, ${GREEN_DARK})` }} />
       </div>
     );
   };
