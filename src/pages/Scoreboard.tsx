@@ -774,7 +774,9 @@ const ScoreboardInner = () => {
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
       <div className={isBottomAligned ? 'w-full relative' : 'w-full px-2 md:px-4'}>
         {isBottomAligned && <DismissalCard snapshot={snapshot} />}
-        {renderContent()}
+        <div key={dm} className={!isBottomAligned ? 'animate-slide-down-in' : undefined}>
+          {renderContent()}
+        </div>
         {isBottomAligned && <ScoreboardTicker snapshot={snapshot} match={match} variant="dark" />}
         {isBottomAligned && <BoundaryAlert snapshot={snapshot} variant="dark" barHeight={62} />}
         {/* Full-width broadcast overlay banner for FOUR / SIX / WICKET */}
