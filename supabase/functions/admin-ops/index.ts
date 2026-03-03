@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 Deno.serve(async (req) => {
@@ -22,7 +22,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { secret, email, password } = body;
 
-    // Require pre-shared secret
     const initSecret = Deno.env.get('ADMIN_INIT_SECRET');
     if (!initSecret || secret !== initSecret) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
@@ -43,7 +42,10 @@ Deno.serve(async (req) => {
       email_confirm: true,
     });
 
-    if (createErr) return new Response(JSON.stringify({ error: createErr.message }), { status: 400, headers: corsHeaders });
+    if (createErr) {
+      console.error('init-admin error:', createErr);
+      return new Response(JSON.stringify({ error: 'Failed to create admin' }), { status: 400, headers: corsHeaders });
+    }
 
     await supabaseAdmin.from('user_roles').upsert({ user_id: newUser.user!.id, role: 'admin' });
     await supabaseAdmin.from('user_access').upsert({ user_id: newUser.user!.id, status: 'active' });
@@ -165,7 +167,10 @@ Deno.serve(async (req) => {
         },
         { onConflict: 'user_id' }
       );
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders });
+    if (error) {
+      console.error('update-user-access error:', error);
+      return new Response(JSON.stringify({ error: 'Failed to update user access' }), { status: 400, headers: corsHeaders });
+    }
     return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
   }
 
@@ -173,7 +178,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { user_id } = body;
     const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id);
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders });
+    if (error) {
+      console.error('delete-user error:', error);
+      return new Response(JSON.stringify({ error: 'Failed to delete user' }), { status: 400, headers: corsHeaders });
+    }
     return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
   }
 
@@ -183,7 +191,10 @@ Deno.serve(async (req) => {
     const { error } = await supabaseAdmin
       .from('app_settings')
       .upsert({ key, value, updated_at: new Date().toISOString() });
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders });
+    if (error) {
+      console.error('update-setting error:', error);
+      return new Response(JSON.stringify({ error: 'Failed to update setting' }), { status: 400, headers: corsHeaders });
+    }
     return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
   }
 
@@ -191,7 +202,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { new_password } = body;
     const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, { password: new_password });
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: corsHeaders });
+    if (error) {
+      console.error('change-password error:', error);
+      return new Response(JSON.stringify({ error: 'Failed to change password' }), { status: 400, headers: corsHeaders });
+    }
     return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
   }
 
@@ -201,12 +215,7 @@ Deno.serve(async (req) => {
     const adminIds = new Set(roles?.filter(r => r.role === 'admin').map(r => r.user_id) ?? []);
 
     const nowBD = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' }));
-    const nonAdminAccesses = (accesses ?? []).filter((_, i) => {
-      // We filter by checking if it's in the user_access rows - all rows since admin has access too
-      return true;
-    });
 
-    // Get non-admin user count
     const { data: allRoles } = await supabaseAdmin.from('user_roles').select('user_id, role');
     const nonAdminUserIds = new Set(allRoles?.filter(r => r.role !== 'admin').map(r => r.user_id) ?? []);
     const nonAdminAccessList = (accesses ?? []).filter(a => nonAdminUserIds.has(a.user_id));

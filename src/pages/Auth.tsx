@@ -68,8 +68,12 @@ const Auth = () => {
           toast({ title: 'Access Denied', description: msg, variant: 'destructive' });
           return;
         }
-      } catch {
-        // If check fails, allow login (don't block on edge function error)
+      } catch (err) {
+        console.error('Access check failed:', err);
+        await supabase.auth.signOut();
+        setLoading(false);
+        toast({ title: 'Connection Error', description: 'সার্ভারের সাথে সংযোগ করা যায়নি। আবার চেষ্টা করুন।', variant: 'destructive' });
+        return;
       }
 
       setLoading(false);

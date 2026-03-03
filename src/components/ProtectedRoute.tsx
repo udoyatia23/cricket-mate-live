@@ -25,9 +25,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         } else {
           setAccessStatus('denied');
         }
-      } catch {
-        // On edge function error, allow access
-        setAccessStatus('ok');
+      } catch (err) {
+        console.error('Access check failed:', err);
+        setAccessStatus('denied');
       }
     };
     checkAccess();
