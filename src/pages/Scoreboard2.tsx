@@ -656,7 +656,7 @@ const Scoreboard2Inner = () => {
       case 'player_bat1' as any:
       case 'player_bat2' as any:
       case 'player_bowl' as any:
-        return <PlayerStatsCard snapshot={snapshot} />;
+        return <><PlayerStatsCard snapshot={snapshot} /><DefaultScoreBar /></>;
       case 'score': case 'default': default: return <DefaultScoreBar />;
     }
   };
