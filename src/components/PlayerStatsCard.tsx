@@ -1,5 +1,5 @@
-// Player Stats Card — Simple, clean stats display for batsman/bowler
-// Triggered by BAT1/BAT2/BOWL buttons from controller
+// Player Stats Card — Compact overlay with slide animation
+// Batsman: slides from LEFT, Bowler: slides from RIGHT
 
 import { ScoreboardSnapshot } from '@/lib/broadcastTypes';
 import { getOversString } from '@/types/cricket';
@@ -14,6 +14,7 @@ export default function PlayerStatsCard({ snapshot }: Props) {
 
   const isBatsman = ps.type === 'batsman';
   const teamColor = ps.teamColor || '#1565c0';
+  const position = isBatsman ? 'left' : 'right';
 
   // Batsman stats
   const batAvg = ps.totalWickets > 0 ? (ps.totalRuns / ps.totalWickets).toFixed(1) : ps.totalRuns > 0 ? ps.totalRuns.toFixed(1) : '0.0';
@@ -47,84 +48,103 @@ export default function PlayerStatsCard({ snapshot }: Props) {
 
   return (
     <div
-      className="w-[90vw] max-w-[520px] mx-auto overflow-hidden rounded-xl"
+      className={`fixed ${position === 'left' ? 'left-0' : 'right-0'} bottom-[120px] z-40`}
       style={{
-        fontFamily: 'Oswald, system-ui, sans-serif',
-        boxShadow: '0 12px 60px rgba(0,0,0,0.7)',
+        animation: position === 'left'
+          ? 'slideInFromLeft 0.4s ease-out forwards'
+          : 'slideInFromRight 0.4s ease-out forwards',
       }}
     >
-      {/* Header with team color */}
+      <style>{`
+        @keyframes slideInFromLeft {
+          from { transform: translateX(-100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideInFromRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
       <div
-        className="relative px-6 py-4 text-center"
-        style={{ background: `linear-gradient(135deg, ${teamColor}dd, ${teamColor}88)` }}
+        className="overflow-hidden"
+        style={{
+          fontFamily: 'Oswald, system-ui, sans-serif',
+          width: '280px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          borderRadius: position === 'left' ? '0 10px 10px 0' : '10px 0 0 10px',
+        }}
       >
-        <div className="flex items-center justify-between">
-          <span
-            className="text-white/60 text-[10px] font-bold tracking-[0.2em] uppercase"
-          >
-            {ps.teamName}
-          </span>
-          <span
-            className="px-3 py-0.5 rounded-full text-[10px] font-black tracking-[0.15em] uppercase"
-            style={{
-              background: isBatsman ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)',
-              color: '#fff',
-            }}
-          >
-            {isBatsman ? 'BATSMAN' : 'BOWLER'}
-          </span>
-        </div>
-        <h2
-          className="font-display font-black text-white text-2xl md:text-3xl uppercase tracking-wider mt-1 drop-shadow-lg"
-          style={{ textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}
+        {/* Header with team color */}
+        <div
+          className="relative px-4 py-2 text-center"
+          style={{ background: `linear-gradient(135deg, ${teamColor}dd, ${teamColor}88)` }}
         >
-          {ps.name}
-        </h2>
-      </div>
-
-      {/* Gold divider */}
-      <div className="h-[3px]" style={{ background: 'linear-gradient(90deg, transparent, #f5c842, transparent)' }} />
-
-      {/* Stats rows */}
-      <div style={{ background: 'linear-gradient(180deg, #1a1a2e 0%, #0d0a38 100%)' }}>
-        {rows.map((row, i) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between px-6 py-3"
-            style={{
-              background: row.highlight
-                ? 'linear-gradient(90deg, rgba(245,200,66,0.12), transparent)'
-                : i % 2 === 0
-                ? 'rgba(255,255,255,0.03)'
-                : 'transparent',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-            }}
-          >
-            <span
-              className="font-display font-bold uppercase tracking-[0.12em]"
-              style={{
-                fontSize: 13,
-                color: row.highlight ? '#f5c842' : 'rgba(255,255,255,0.6)',
-              }}
-            >
-              {row.label}
+          <div className="flex items-center justify-between">
+            <span className="text-white/60 text-[9px] font-bold tracking-[0.15em] uppercase">
+              {ps.teamName}
             </span>
             <span
-              className="font-display font-black tabular-nums"
+              className="px-2 py-0.5 rounded-full text-[8px] font-black tracking-[0.12em] uppercase"
               style={{
-                fontSize: 18,
-                color: row.highlight ? '#f5c842' : '#fff',
-                textShadow: row.highlight ? '0 0 8px rgba(245,200,66,0.3)' : 'none',
+                background: isBatsman ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)',
+                color: '#fff',
               }}
             >
-              {row.value}
+              {isBatsman ? 'BATSMAN' : 'BOWLER'}
             </span>
           </div>
-        ))}
-      </div>
+          <h2
+            className="font-display font-black text-white text-lg uppercase tracking-wider drop-shadow-lg"
+            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
+          >
+            {ps.name}
+          </h2>
+        </div>
 
-      {/* Bottom accent */}
-      <div className="h-[3px]" style={{ background: `linear-gradient(90deg, transparent, ${teamColor}, transparent)` }} />
+        {/* Gold divider */}
+        <div className="h-[2px]" style={{ background: 'linear-gradient(90deg, transparent, #f5c842, transparent)' }} />
+
+        {/* Stats rows — compact */}
+        <div style={{ background: 'linear-gradient(180deg, #1a1a2e 0%, #0d0a38 100%)' }}>
+          {rows.map((row, i) => (
+            <div
+              key={row.label}
+              className="flex items-center justify-between px-4 py-1.5"
+              style={{
+                background: row.highlight
+                  ? 'linear-gradient(90deg, rgba(245,200,66,0.12), transparent)'
+                  : i % 2 === 0
+                  ? 'rgba(255,255,255,0.03)'
+                  : 'transparent',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <span
+                className="font-display font-bold uppercase tracking-[0.1em]"
+                style={{
+                  fontSize: 10,
+                  color: row.highlight ? '#f5c842' : 'rgba(255,255,255,0.6)',
+                }}
+              >
+                {row.label}
+              </span>
+              <span
+                className="font-display font-black tabular-nums"
+                style={{
+                  fontSize: 13,
+                  color: row.highlight ? '#f5c842' : '#fff',
+                  textShadow: row.highlight ? '0 0 6px rgba(245,200,66,0.3)' : 'none',
+                }}
+              >
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom accent */}
+        <div className="h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${teamColor}, transparent)` }} />
+      </div>
     </div>
   );
 }
