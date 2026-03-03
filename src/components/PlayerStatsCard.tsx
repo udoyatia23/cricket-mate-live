@@ -48,7 +48,7 @@ export default function PlayerStatsCard({ snapshot }: Props) {
 
   return (
     <div
-      className={`fixed ${position === 'left' ? 'left-0' : 'right-0'} bottom-[62px] z-40`}
+      className={`fixed ${position === 'left' ? 'left-0' : 'right-0'} bottom-[90px] z-40`}
       style={{
         animation: position === 'left'
           ? 'slideInFromLeft 0.4s ease-out forwards'
