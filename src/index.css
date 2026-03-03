@@ -164,4 +164,13 @@ html.scoreboard-page #root {
   .animate-four { animation: four-flash 0.5s ease-out 3; }
   .animate-six { animation: six-flash 0.5s ease-out 3; }
   .animate-wicket { animation: wicket-flash 0.5s ease-out 3; }
+
+  @keyframes slideDownIn {
+    0% { transform: translateY(-60px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-slide-down-in {
+    animation: slideDownIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
 }
