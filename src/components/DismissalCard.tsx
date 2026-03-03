@@ -110,66 +110,122 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
       >
         <style>{`
           @keyframes dismissalSlideIn {
-            from { opacity: 0; transform: translateY(18px) scaleX(0.96); }
-            to   { opacity: 1; transform: translateY(0)  scaleX(1); }
+            from { opacity: 0; transform: translateY(24px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
           }
           @keyframes dismissalSlideOut {
-            from { opacity: 1; transform: translateY(0)  scaleX(1); }
-            to   { opacity: 0; transform: translateY(12px) scaleX(0.97); }
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to   { opacity: 0; transform: translateY(16px) scale(0.97); }
           }
           @keyframes duckWalk {
-            from { transform: translateX(80px); }
-            to   { transform: translateX(-80px); }
+            0%   { transform: translateX(100px); }
+            100% { transform: translateX(-100px); }
+          }
+          @keyframes duckBounce {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-6px); }
           }
           @keyframes dismissalProgress {
             from { transform: scaleX(1); }
             to   { transform: scaleX(0); }
           }
+          @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 12px rgba(233,30,99,0.3), 0 8px 32px rgba(0,0,0,0.6); }
+            50%      { box-shadow: 0 0 24px rgba(233,30,99,0.5), 0 8px 40px rgba(0,0,0,0.7); }
+          }
+          @keyframes shimmer {
+            0%   { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
         `}</style>
 
-        <div style={{ width: 'min(92vw, 680px)' }}>
+        <div style={{ width: 'min(92vw, 720px)' }}>
           {/* Duck animation area */}
-          <div className="flex justify-center mb-[-14px] relative" style={{ zIndex: 2 }}>
-            <div style={{ animation: 'duckWalk 3s linear infinite alternate', width: 110, height: 100 }}>
-              <img src={duckWalkGif} alt="Duck walk" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          <div className="flex justify-center mb-[-18px] relative" style={{ zIndex: 2 }}>
+            <div style={{ animation: 'duckWalk 3.5s ease-in-out infinite alternate' }}>
+              <div style={{ animation: 'duckBounce 0.6s ease-in-out infinite', width: 120, height: 110 }}>
+                <img src={duckWalkGif} alt="Duck walk" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }} />
+              </div>
             </div>
           </div>
 
-          {/* Info bar */}
-          <div className="relative overflow-hidden rounded-sm shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.75)' }}>
-            <div className="flex" style={{ background: 'linear-gradient(180deg, #37474f 0%, #263238 100%)' }}>
-              {/* Content */}
-              <div className="flex-1 px-5 py-3">
-                {/* Top row: Name + Score */}
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-display text-base md:text-lg font-black text-white uppercase tracking-wider truncate">
+          {/* Premium info bar */}
+          <div
+            className="relative overflow-hidden rounded-lg"
+            style={{ animation: 'pulseGlow 2s ease-in-out infinite' }}
+          >
+            {/* Top accent — shimmering gradient */}
+            <div
+              className="h-[3px] w-full"
+              style={{
+                background: 'linear-gradient(90deg, #e91e63, #ff5722, #ff9800, #ff5722, #e91e63)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2s linear infinite',
+              }}
+            />
+
+            {/* Main body */}
+            <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)' }}>
+              {/* Name row */}
+              <div className="flex items-center justify-between px-5 pt-3 pb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="flex-shrink-0 text-[9px] font-black tracking-widest px-2 py-[3px] rounded uppercase"
+                    style={{
+                      background: 'linear-gradient(135deg, #e91e63, #c62828)',
+                      color: '#fff',
+                      letterSpacing: '0.14em',
+                      boxShadow: '0 2px 8px rgba(233,30,99,0.4)',
+                    }}
+                  >
+                    DUCK
+                  </span>
+                  <span className="font-display text-lg md:text-xl font-black text-white uppercase tracking-wider truncate">
                     {dismissalData.name}
                   </span>
-                  <span className="font-display font-black tabular-nums text-white flex-shrink-0" style={{ fontSize: 'clamp(1.2rem, 3.5vw, 1.6rem)' }}>
-                    {dismissalData.runs} ({dismissalData.balls})
-                  </span>
                 </div>
-
-                {/* Bottom row: Dismissal info + Strike rate */}
-                <div className="flex items-center justify-between gap-2 mt-1">
-                  <div className="flex items-center gap-2 text-white/70 text-xs md:text-sm font-bold uppercase tracking-wider truncate">
-                    <span>{dismissStr}</span>
-                    {dismissalData.dismissedBy && (
-                      <>
-                        <span className="text-white/30">•</span>
-                        <span>b {dismissalData.dismissedBy}</span>
-                      </>
-                    )}
-                  </div>
-                  <span className="text-white/60 text-xs md:text-sm font-bold uppercase tracking-wider flex-shrink-0">
-                    STRIKE RATE: {strikeRate}
+                <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                  <span className="font-display font-black tabular-nums" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.2rem)', color: '#e91e63', lineHeight: 1 }}>
+                    {dismissalData.runs}
+                  </span>
+                  <span className="font-display font-medium tabular-nums text-white/50" style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.2rem)' }}>
+                    ({dismissalData.balls})
                   </span>
                 </div>
               </div>
+
+              {/* Divider */}
+              <div className="mx-5 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(233,30,99,0.3), transparent)' }} />
+
+              {/* Dismissal row */}
+              <div className="flex items-center justify-between px-5 pt-1.5 pb-3">
+                <div className="flex items-center gap-2 text-white/70 text-xs md:text-sm font-bold uppercase tracking-wider truncate">
+                  <span style={{ color: '#ff5722' }}>{dismissStr}</span>
+                  {dismissalData.dismissedBy && (
+                    <>
+                      <span className="text-white/20">•</span>
+                      <span className="text-white/80">b {dismissalData.dismissedBy}</span>
+                    </>
+                  )}
+                </div>
+                <span className="text-white/50 text-xs md:text-sm font-bold uppercase tracking-wider flex-shrink-0">
+                  SR: {strikeRate}
+                </span>
+              </div>
             </div>
 
+            {/* Bottom accent */}
+            <div
+              className="h-[3px] w-full"
+              style={{
+                background: 'linear-gradient(90deg, #e91e63, #ff5722, #ff9800, #ff5722, #e91e63)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2s linear infinite',
+              }}
+            />
+
             {/* Progress bar */}
-            <div className="h-[2px] w-full" style={{ background: '#e91e63', transformOrigin: 'left', animation: 'dismissalProgress 5s linear forwards' }} />
+            <div className="h-[2px] w-full" style={{ background: '#ff9800', transformOrigin: 'left', animation: 'dismissalProgress 5s linear forwards' }} />
           </div>
         </div>
       </div>
