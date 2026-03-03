@@ -835,7 +835,9 @@ const Scoreboard5Inner = () => {
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
       <div className={isBottomAligned ? 'w-full relative' : 'w-full px-2 md:px-4'}>
         {isBottomAligned && <div className="mb-14"><DismissalCard snapshot={snapshot} /></div>}
-        {renderContent()}
+        <div key={dm} className={!isBottomAligned ? 'animate-slide-down-in' : undefined}>
+          {renderContent()}
+        </div>
         <BroadcastOverlayBanner
           overlay={display.overlay}
           onHide={() => setDisplay(prev => ({ ...prev, overlay: 'none' }))}
