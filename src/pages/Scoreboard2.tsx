@@ -420,7 +420,7 @@ const Scoreboard2Inner = () => {
       ...Array.from({ length: Math.max(0, 11 - battedPlayers.length) }, () => null),
     ];
     return (
-      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg shadow-2xl animate-slide-down-in" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3" style={{ background: `linear-gradient(135deg, ${btColor}, ${btColor}cc)` }}>
           <div className="flex items-center gap-3">

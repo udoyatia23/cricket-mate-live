@@ -510,7 +510,7 @@ const ScoreboardInner = () => {
     const battedPlayers = bt.players.filter(p => p.ballsFaced > 0 || p.isOut || p.id === inn.currentStrikerId || p.id === inn.currentNonStrikerId);
     const allSlots: (typeof battedPlayers[0] | null)[] = [...battedPlayers, ...Array.from({ length: Math.max(0, 11 - battedPlayers.length) }, () => null)];
     return (
-      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-lg animate-slide-down-in" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}>
         <div className="flex items-center justify-between px-5 py-3" style={{ background: `linear-gradient(135deg, ${btColor}dd, ${btColor}88)` }}>
           <div className="flex items-center gap-3">
             {bt.logo && <img src={bt.logo} alt={bt.name} className="w-8 h-8 object-contain" />}

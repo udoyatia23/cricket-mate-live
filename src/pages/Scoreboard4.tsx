@@ -505,7 +505,7 @@ const Scoreboard4Inner = () => {
       ...Array.from({ length: Math.max(0, 11 - battedPlayers.length) }, () => null),
     ];
     return (
-      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6), 0 0 20px rgba(0,100,0,0.3)' }}>
+      <div className="w-[90vw] max-w-[800px] mx-auto overflow-hidden rounded-xl animate-slide-down-in" style={{ boxShadow: '0 12px 50px rgba(0,0,0,0.6), 0 0 20px rgba(0,100,0,0.3)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3" style={{ background: `linear-gradient(135deg, ${btColor}dd, ${btColor}88)` }}>
           <div className="flex items-center gap-3">
