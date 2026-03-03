@@ -158,7 +158,7 @@ const Scoreboard5Inner = () => {
       })
       .subscribe((status) => { if (mounted) setConnectionStatus(status); });
 
-    const broadcastCh = supabase.channel(`broadcast5-${id}`)
+    const broadcastCh = supabase.channel(`broadcast-${id}`)
       .on('broadcast', { event: 'match_update' }, (payload) => {
         if (!mounted) return;
         const data = payload.payload;
