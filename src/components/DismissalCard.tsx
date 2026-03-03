@@ -129,12 +129,8 @@ const DismissalCard = ({ snapshot }: DismissalCardProps) => {
 
         <div style={{ width: 'min(92vw, 680px)' }}>
           {/* Duck animation area */}
-          <div className="flex flex-col items-center mb-[-10px] relative" style={{ zIndex: 2 }}>
-            <div className="flex items-end gap-1 mb-[-4px]">
-              <span style={{ fontSize: 'clamp(2rem, 6vw, 3.2rem)', fontWeight: 900, color: '#e65100', lineHeight: 1, fontFamily: 'Oswald, sans-serif' }}>0</span>
-              <span style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.4rem)', fontWeight: 900, color: '#2e7d32', lineHeight: 1.3, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.05em' }}>RUNS</span>
-            </div>
-            <div style={{ animation: 'duckWalk 3s linear infinite alternate', width: 100, height: 90 }}>
+          <div className="flex justify-center mb-[-14px] relative" style={{ zIndex: 2 }}>
+            <div style={{ animation: 'duckWalk 3s linear infinite alternate', width: 110, height: 100 }}>
               <img src={duckWalkGif} alt="Duck walk" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
           </div>
