@@ -652,7 +652,8 @@ const Scoreboard3Inner = () => {
 
 
   // ===== RENDER =====
-  const isBottomAligned = display.mode === 'default' || display.mode === 'score';
+  const dm = display.mode as string;
+  const isBottomAligned = dm === 'default' || dm === 'score' || dm === 'player_bat1' || dm === 'player_bat2' || dm === 'player_bowl';
 
   const renderContent = () => {
     const tourId = snapshot?.tournamentId || match?.tournamentId;
