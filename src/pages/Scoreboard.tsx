@@ -7,6 +7,7 @@ import UpcomingMatchDisplay from '@/components/UpcomingMatchDisplay';
 import DrsTimer from '@/components/DrsTimer';
 import DismissalCard from '@/components/DismissalCard';
 import TourStatsDisplay from '@/components/TourStatsDisplay';
+import PlayerStatsCard from '@/components/PlayerStatsCard';
 import { useParams } from 'react-router-dom';
 import { Match, BallEvent, getOversString, getRunRate } from '@/types/cricket';
 import { getMatch } from '@/lib/store';
@@ -760,6 +761,10 @@ const ScoreboardInner = () => {
         return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_boundaries" variant="forest" /> : null;
       case 'tour_series' as any:
         return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_series" variant="forest" /> : null;
+      case 'player_bat1' as any:
+      case 'player_bat2' as any:
+      case 'player_bowl' as any:
+        return <PlayerStatsCard snapshot={snapshot} />;
       case 'score': case 'default': default: return <DefaultScoreBar />;
     }
   };

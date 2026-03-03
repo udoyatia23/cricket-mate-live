@@ -57,6 +57,30 @@ export interface ScoreboardSnapshot {
   tournamentId?: string;
   // Tournament name (for VS banner)
   tournamentName?: string;
+  // Player stats display (for BAT1/BAT2/BOWL buttons)
+  playerStats?: {
+    type: 'batsman' | 'bowler';
+    name: string;
+    teamName: string;
+    teamColor: string;
+    // Tournament aggregated stats
+    matches: number;
+    totalRuns: number;
+    totalBalls: number;
+    totalWickets: number;   // bowling wickets or times out (for batsman avg)
+    totalBowlingRuns: number;
+    totalBowlingBalls: number;
+    totalFours: number;
+    totalSixes: number;
+    // Current match stats
+    currentRuns: number;
+    currentBalls: number;
+    currentFours: number;
+    currentSixes: number;
+    currentBowlingWickets: number;
+    currentBowlingRuns: number;
+    currentBowlingBalls: number;
+  };
   // Dismissed batsman info (shows for 5s after wicket)
   dismissal?: {
     name: string;
