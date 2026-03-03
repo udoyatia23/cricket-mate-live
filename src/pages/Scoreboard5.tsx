@@ -828,7 +828,7 @@ const Scoreboard5Inner = () => {
   return (
     <div className={`w-full min-h-screen bg-transparent flex justify-center p-0 ${isBottomAligned ? 'items-end' : 'items-center'}`}>
       <div className={isBottomAligned ? 'w-full relative' : 'w-full px-2 md:px-4'}>
-        {isBottomAligned && <DismissalCard snapshot={snapshot} />}
+        {isBottomAligned && <div className="mb-14"><DismissalCard snapshot={snapshot} /></div>}
         {renderContent()}
         <BroadcastOverlayBanner
           overlay={display.overlay}
