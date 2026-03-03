@@ -5,6 +5,7 @@ import MatchSummaryCard from '@/components/MatchSummaryCard';
 import ScoreboardTicker from '@/components/ScoreboardTicker';
 import UpcomingMatchDisplay from '@/components/UpcomingMatchDisplay';
 import TourStatsDisplay from '@/components/TourStatsDisplay';
+import PlayerStatsCard from '@/components/PlayerStatsCard';
 import DrsTimer from '@/components/DrsTimer';
 import DismissalCard from '@/components/DismissalCard';
 import { useParams } from 'react-router-dom';
@@ -778,6 +779,10 @@ const Scoreboard4Inner = () => {
         return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_boundaries" variant="forest" /> : null;
       case 'tour_series' as any:
         return tourId ? <TourStatsDisplay tournamentId={tourId} mode="tour_series" variant="forest" /> : null;
+      case 'player_bat1' as any:
+      case 'player_bat2' as any:
+      case 'player_bowl' as any:
+        return <PlayerStatsCard snapshot={snapshot} />;
       case 'score': case 'default': default: return <DefaultScoreBar />;
     }
   };

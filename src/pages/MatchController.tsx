@@ -496,6 +496,86 @@ const MatchController = () => {
     );
   }, [id, match, tournamentMatches, createSnapshot, broadcastPayload]);
 
+  // Send player stats (BAT1/BAT2/BOWL) to scoreboard
+  const sendPlayerStats = useCallback((type: 'bat1' | 'bat2' | 'bowl') => {
+    if (!id || !match) return;
+    const currentInn = match.currentInningsIndex >= 0 ? match.innings[match.currentInningsIndex] : null;
+    if (!currentInn) return;
+
+    const batTeam = currentInn.battingTeamIndex === 0 ? match.team1 : match.team2;
+    const bowlTeam = currentInn.bowlingTeamIndex === 0 ? match.team1 : match.team2;
+
+    let targetPlayer: any = null;
+    let playerType: 'batsman' | 'bowler' = 'batsman';
+    let playerTeam = batTeam;
+
+    if (type === 'bat1') {
+      targetPlayer = batTeam.players.find(p => p.id === currentInn.currentStrikerId);
+    } else if (type === 'bat2') {
+      targetPlayer = batTeam.players.find(p => p.id === currentInn.currentNonStrikerId);
+    } else {
+      targetPlayer = bowlTeam.players.find(p => p.id === currentInn.currentBowlerId);
+      playerType = 'bowler';
+      playerTeam = bowlTeam;
+    }
+
+    if (!targetPlayer) return;
+
+    // Aggregate tournament stats from all finished + current matches
+    let totalRuns = 0, totalBalls = 0, totalTimesOut = 0;
+    let totalBowlingRuns = 0, totalBowlingBalls = 0, totalBowlingWickets = 0;
+    let totalFours = 0, totalSixes = 0, matchCount = 0;
+
+    const allMatches = [...tournamentMatches];
+    if (!allMatches.find(m => m.id === match.id)) allMatches.push(match);
+
+    for (const tm of allMatches) {
+      const allPlayers = [...tm.team1.players, ...tm.team2.players];
+      const found = allPlayers.find(p => p.name === targetPlayer.name);
+      if (!found) continue;
+      if (found.ballsFaced > 0 || found.runs > 0 || found.bowlingBalls > 0) matchCount++;
+      totalRuns += found.runs;
+      totalBalls += found.ballsFaced;
+      totalFours += found.fours;
+      totalSixes += found.sixes;
+      if (found.isOut) totalTimesOut++;
+      totalBowlingRuns += found.bowlingRuns;
+      totalBowlingBalls += found.bowlingBalls;
+      totalBowlingWickets += found.bowlingWickets;
+    }
+
+    const snapshot = createSnapshot(match, 'none');
+    snapshot.displayMode = type === 'bat1' ? 'player_bat1' : type === 'bat2' ? 'player_bat2' : 'player_bowl';
+    snapshot.playerStats = {
+      type: playerType,
+      name: targetPlayer.name,
+      teamName: playerTeam.name,
+      teamColor: playerTeam.color || '#1565c0',
+      matches: matchCount,
+      totalRuns,
+      totalBalls,
+      totalWickets: playerType === 'batsman' ? totalTimesOut : totalBowlingWickets,
+      totalBowlingRuns,
+      totalBowlingBalls,
+      totalFours,
+      totalSixes,
+      currentRuns: targetPlayer.runs,
+      currentBalls: targetPlayer.ballsFaced,
+      currentFours: targetPlayer.fours,
+      currentSixes: targetPlayer.sixes,
+      currentBowlingWickets: targetPlayer.bowlingWickets,
+      currentBowlingRuns: targetPlayer.bowlingRuns,
+      currentBowlingBalls: targetPlayer.bowlingBalls,
+    };
+
+    broadcastPayload({ snapshot });
+    setActiveDisplay(snapshot.displayMode as any);
+    (supabase.from('score_live') as any).upsert(
+      { match_id: id, snapshot, updated_at: new Date().toISOString() },
+      { onConflict: 'match_id' }
+    );
+  }, [id, match, tournamentMatches, createSnapshot, broadcastPayload]);
+
   if (!match) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1387,7 +1467,17 @@ const MatchController = () => {
           </div>
         </Section>
 
-        {/* Select Team Color */}
+        {/* Player Stats Controller */}
+        <Section>
+          <h3 className="font-display text-center font-bold mb-3">PLAYER STATS DISPLAY</h3>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <ControlBtn label="BAT 1 (STRIKER)" color="bg-orange-500 text-white" onClick={() => sendPlayerStats('bat1')} active={activeDisplay === ('player_bat1' as any)} />
+            <ControlBtn label="BAT 2 (NON-STRIKER)" color="bg-orange-600 text-white" onClick={() => sendPlayerStats('bat2')} active={activeDisplay === ('player_bat2' as any)} />
+            <ControlBtn label="BOWLER INFO" color="bg-purple-600 text-white" onClick={() => sendPlayerStats('bowl')} active={activeDisplay === ('player_bowl' as any)} />
+          </div>
+        </Section>
+
+
         <Section>
           <h3 className="font-display text-center font-bold mb-3">SELECT TEAM COLOR</h3>
           <div className="flex items-center justify-between gap-4">
